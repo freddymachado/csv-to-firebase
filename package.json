@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@google-cloud/firestore": "^7.6.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "pdf-to-excel": "^0.3.2"
   }
 }
