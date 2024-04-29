@@ -11,6 +11,15 @@ const firestore = new Firestore({
     }
 });
 
+//1.- download 6 files
+//2.- node pdftoexcel.js
+//3.- create month folder and store previous files
+//4.- rename xls files
+//5.- convert xls to csv
+//6.- fix data
+//7.- convert to csv to json
+//8.- node create_item.js
+
 //if collection does not exist, it will be created
 //const jan24 = firestore.collection('metrics').doc('panamcred');
 const jan24 = firestore.collection('panamcred');
