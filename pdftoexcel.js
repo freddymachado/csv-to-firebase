@@ -1,11 +1,10 @@
 const pdf2excel = require('pdf-to-excel');
 const fs = require('node:fs');
-
+var constants = require('./constants');
 //get month
 const d = new Date();
 let month = d.getMonth();
-const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const folderName = '../resources/'+months[month];
+const folderName = '../resources/'+constants.MONTHS[month];
 
 //convert xls to pdf
 try { 
