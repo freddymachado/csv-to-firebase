@@ -82,19 +82,35 @@ function row_to_column(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
     var R = row_index
     var C = variable.s.c
-    ws[ec(R,C+1)] = ws[ec(R+1,C)];
-    delete_row(ws, row_index+1);
+    if(ws[ec(R-1,C+1)]==null){
+        ws[ec(R-1,C+1)] = ws[ec(R,C)];
+        console.log('trx');
+    }else if(ws[ec(R-1,C+2)]==null){
+        ws[ec(R-1,C+2)] = ws[ec(R,C)];
+        console.log('desc');
+    }else{
+        ws[ec(R-1,C+3)] = ws[ec(R,C)];
+        console.log('mov');
+    }
+    delete_row(ws, R);
     console.log('finish row_to_column');
 }
 function add_header(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
     var R = row_index
+    //add columns
+    variable.e.c++
+    variable.e.c++
+    variable.e.c++
     var C = variable.s.c
-    ws[ec(R,C+1)] = ws[ec(R+3,C)];
-    ws[ec(R,C+2)] = ws[ec(R+7,C+1)]; 
-    var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : '';
-    console.log(ws);
-    var cellValue = ws[XLSX.utils.encode_cell({c: C+2, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
+    ws["!ref"] = XLSX.utils.encode_range(variable);
+    //add header
+    ws[ec(R,C+1)] = ws[ec(R+2,C)];
+    ws[ec(R,C+2)] = ws[ec(R+3,C)];
+    ws[ec(R,C+3)] = ws[ec(R+5,C)];
+    ws[ec(R,C+4)] = ws[ec(R+6,C)];
+    ws[ec(R,C+5)] = ws[ec(R+7,C+1)]; 
+    var cellValue = ws[XLSX.utils.encode_cell({c: C+5, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
     console.log(cellValue);
        
     console.log('finish add_header');
@@ -110,40 +126,57 @@ function move_type(ws, row_index) {
     var C = variable.s.c;
   
     // Get cell value with error handling
-    var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : '';
+    var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : 'null';
     console.log(cellValue);
   
     // Check if cell value exists in constants.TRX_TYPE (consider loose equality)
-    if (cellValue && cellValue.trim() in constants.TRX_TYPE) {
-      if (cellValue.trim() === 'DEBITO') {
+    if (constants.TRX_TYPE.includes(cellValue)) {
+      if (cellValue === 'DEBITO') {
         row_to_column(ws, row_index);
-        delete_row(ws, row_index);
+        console.warn(`finish DEBITO move type`);
       } else {
         row_to_column(ws, row_index);
+        console.warn(`finish move type`);
       }
     } else {
       // Handle empty or non-existent cell (optional: log error or delete row)
       console.warn(`Cell(${R}, ${C}) is empty or not found.`);
-      // delete_row(ws, row_index); // Optional: Delete row if desired
+      delete_row(ws, row_index); // Optional: Delete row if desired
+      move_type(ws,row_index);
     }
   }
 function move_amount(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
     var R = row_index
     var C = variable.s.c
-    ws[ec(R,C+1)] = ws[ec(R+1,C)];
-    if(ws[ec(R+1,C+1)]='Bs. -'){
-        ws[ec(R,C+2)] = ws[ec(R+1,C+2)];
+    ws[ec(R-1,C+4)] = ws[ec(R,C)];
+    var cellValue = ws[XLSX.utils.encode_cell({c: C+1, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
+    console.log(cellValue);
+    if(cellValue==='Bs. -' || cellValue==='Bs.'){
+        ws[ec(R-1,C+5)] = ws[ec(R,C+2)];
     }else{
-        ws[ec(R,C+2)] = ws[ec(R+1,C+2)];
+        ws[ec(R-1,C+5)] = ws[ec(R,C+1)];
     }
-    delete_row(ws, row_index+1);
-    console.log('finish move_amount');
+    delete_row(ws, row_index);
+    console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
+    if(row_index+1<variable.e.r){
+        
+        //move reference
+        row_to_column(ws,R+1);
+        
+        //move description
+        row_to_column(ws,R+1);
+        
+        //move type
+        move_type(ws,R+1);
+        
+        //move status & amount
+        move_amount(ws,R+1);
+    }
 }
 function depure_bonus(ws,row_index){     
     // read the worksheet
     const bonus = ws.Sheets["Sheet1"];
-    var variable = XLSX.utils.decode_range(bonus["!ref"])
     var R = row_index
 
     //for(var R = row_index; R < variable.e.r; ++R){
