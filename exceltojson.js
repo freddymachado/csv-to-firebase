@@ -133,6 +133,7 @@ function move_type(ws, row_index) {
     if (constants.TRX_TYPE.includes(cellValue)) {
       if (cellValue === 'DEBITO') {
         row_to_column(ws, row_index);
+        delete_row(ws, row_index);
         console.warn(`finish DEBITO move type`);
       } else {
         row_to_column(ws, row_index);
@@ -141,7 +142,7 @@ function move_type(ws, row_index) {
     } else {
       // Handle empty or non-existent cell (optional: log error or delete row)
       console.warn(`Cell(${R}, ${C}) is empty or not found.`);
-      delete_row(ws, row_index); // Optional: Delete row if desired
+      delete_row(ws, row_index);
       move_type(ws,row_index);
     }
   }
