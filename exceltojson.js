@@ -1,5 +1,6 @@
 XLSX = require('xlsx');
 var constants = require('./constants');
+let csvToJson = require('convert-csv-to-json');
 
 const d = new Date();
 let month = d.getMonth();
@@ -17,6 +18,12 @@ delete_rows(savingsAccount, 0,8);
 //convert to csv
 XLSX.writeFile(merdeb, folderName+'/merdeb.csv', { bookType: "csv" });
 
+//convert to json
+let fileInputNamemerdeb = folderName+'/merdeb.csv'; 
+let fileOutputNamemerdeb = folderName+'/merdeb.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNamemerdeb,fileOutputNamemerdeb);
+
 //-----------begin tpago convertion
 const tpago = XLSX.readFile('../resources/Detalle_Tpago.xlsx');
 
@@ -28,6 +35,12 @@ delete_rows(tpagoPage, 0,3);
 
 //convert to csv
 XLSX.writeFile(tpago, folderName+'/tpago.csv', { bookType: "csv" });
+
+//convert to json
+let fileInputNametpago = folderName+'/tpago.csv'; 
+let fileOutputNametpago = folderName+'/tpago.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNametpago,fileOutputNametpago);
 
 
 //---------------begin panamdeb convertion
@@ -42,6 +55,12 @@ delete_rows(panamDebAccount, 0,1);
 //convert to csv
 XLSX.writeFile(panamdeb, folderName+'/panamdeb.csv', { bookType: "csv" });
 
+//convert to json
+let fileInputNamepanamdeb = folderName+'/panamdeb.csv'; 
+let fileOutputNamepanamdeb = folderName+'/panamdeb.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNamepanamdeb,fileOutputNamepanamdeb);
+
 
 //---------------begin cestaticket convertion
 
@@ -51,6 +70,12 @@ depure_bonus(cestaticket, 0);
         
 //convert to csv
 XLSX.writeFile(cestaticket, folderName+'/cestaticket.csv', { bookType: "csv" });
+
+//convert to json
+let fileInputNamecestaticket = folderName+'/cestaticket.csv'; 
+let fileOutputNamecestaticket = folderName+'/cestaticket.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNamecestaticket,fileOutputNamecestaticket);
 
 
 //----------------begin ticketplus convertion
@@ -62,7 +87,26 @@ depure_bonus(ticketplus, 0);
 //convert to csv
 XLSX.writeFile(ticketplus, folderName+'/ticketplus.csv', { bookType: "csv" });
 
+//convert to json
+let fileInputNameticketplus = folderName+'/ticketplus.csv'; 
+let fileOutputNameticketplus = folderName+'/ticketplus.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNameticketplus,fileOutputNameticketplus);
+
 //----------------begin panamcred convertion
+
+const panamcred = XLSX.readFile(folderName+'/panamcred.xlsx');
+
+depure_panamcred(panamcred, 0);
+        
+//convert to csv
+XLSX.writeFile(panamcred, folderName+'/panamcred.csv', { bookType: "csv" });
+
+//convert to json
+let fileInputNamepanamcred = folderName+'/panamcred.csv'; 
+let fileOutputNamepanamcred = folderName+'/panamcred.json';
+
+csvToJson.generateJsonFileFromCsv(fileInputNamepanamcred,fileOutputNamepanamcred);
 
 //delete a specific row
 function ec(r, c){
@@ -202,4 +246,64 @@ function depure_bonus(ws,row_index){
         //move status & amount
         move_amount(bonus,R+2);
     //}    
+}
+function add_panamcredheader(ws, row_index){
+    var variable = XLSX.utils.decode_range(ws["!ref"])
+    var R = row_index
+   
+    var C = variable.s.c
+    ws["!ref"] = XLSX.utils.encode_range(variable);
+    //add header
+    ws[ec(R,C+1)] = ws[ec(R+2,C)];
+    ws[ec(R,C+2)] = ws[ec(R+3,C)];
+    ws[ec(R,C+3)] = ws[ec(R+3,C+1)];
+    ws[ec(R,C+4)] = ws[ec(R+3,C+2)];
+    var cellValue = ws[XLSX.utils.encode_cell({c: C+5, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
+    console.log(cellValue);
+       
+    console.log('finish add_header');
+}
+function move_description(ws, row_index){
+    var variable = XLSX.utils.decode_range(ws["!ref"])
+    var R = row_index
+    var C = variable.s.c
+    //add description
+    ws[ec(R-1,C+3)] = ws[ec(R,C)];
+    //add amount
+    ws[ec(R-1,C+4)] = ws[ec(R,C+1)];
+    delete_row(ws, R);
+    console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
+    if(row_index+7<variable.e.r){
+        
+        //move date
+        row_to_column(ws,R+1);
+        
+        //move reference
+        row_to_column(ws,R+1);
+        
+        //move type
+        move_description(ws,R+1);
+    }
+}
+function depure_panamcred(ws,row_index){     
+    // read the worksheet
+    const bonus = ws.Sheets["Sheet1"];
+    var R = row_index
+
+        //depure bonus data
+        delete_rows(bonus, R,16);
+        
+        add_panamcredheader(bonus,R);
+        
+        //depure bonus header
+        delete_rows(bonus,R+1,5);
+        
+        //move date
+        row_to_column(bonus,R+2);
+        
+        //move reference
+        row_to_column(bonus,R+2);
+        
+        //move type
+        move_description(bonus,R+2);
 }
