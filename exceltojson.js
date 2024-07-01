@@ -1,6 +1,6 @@
 XLSX = require('xlsx');
 var constants = require('./constants');
-let csvToJson = require('convert-csv-to-json');
+const { exec } = require('child_process');
 
 const d = new Date();
 let month = d.getMonth();
@@ -22,7 +22,14 @@ XLSX.writeFile(merdeb, folderName+'/merdeb.csv', { bookType: "csv" });
 let fileInputNamemerdeb = folderName+'/merdeb.csv'; 
 let fileOutputNamemerdeb = folderName+'/merdeb.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNamemerdeb,fileOutputNamemerdeb);
+exec(`csvtojson ${fileInputNamemerdeb} > ${fileOutputNamemerdeb}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV merdeb convertido a JSON correctamente.');
+});
 
 //-----------begin tpago convertion
 const tpago = XLSX.readFile('../resources/Detalle_Tpago.xlsx');
@@ -40,7 +47,14 @@ XLSX.writeFile(tpago, folderName+'/tpago.csv', { bookType: "csv" });
 let fileInputNametpago = folderName+'/tpago.csv'; 
 let fileOutputNametpago = folderName+'/tpago.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNametpago,fileOutputNametpago);
+exec(`csvtojson ${fileInputNametpago} > ${fileOutputNametpago}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV tpago convertido a JSON correctamente.');
+});
 
 
 //---------------begin panamdeb convertion
@@ -59,7 +73,14 @@ XLSX.writeFile(panamdeb, folderName+'/panamdeb.csv', { bookType: "csv" });
 let fileInputNamepanamdeb = folderName+'/panamdeb.csv'; 
 let fileOutputNamepanamdeb = folderName+'/panamdeb.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNamepanamdeb,fileOutputNamepanamdeb);
+exec(`csvtojson ${fileInputNamepanamdeb} > ${fileOutputNamepanamdeb}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV panamdeb convertido a JSON correctamente.');
+});
 
 
 //---------------begin cestaticket convertion
@@ -75,7 +96,14 @@ XLSX.writeFile(cestaticket, folderName+'/cestaticket.csv', { bookType: "csv" });
 let fileInputNamecestaticket = folderName+'/cestaticket.csv'; 
 let fileOutputNamecestaticket = folderName+'/cestaticket.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNamecestaticket,fileOutputNamecestaticket);
+exec(`csvtojson ${fileInputNamecestaticket} > ${fileOutputNamecestaticket}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV cestaticket convertido a JSON correctamente.');
+});
 
 
 //----------------begin ticketplus convertion
@@ -91,7 +119,14 @@ XLSX.writeFile(ticketplus, folderName+'/ticketplus.csv', { bookType: "csv" });
 let fileInputNameticketplus = folderName+'/ticketplus.csv'; 
 let fileOutputNameticketplus = folderName+'/ticketplus.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNameticketplus,fileOutputNameticketplus);
+exec(`csvtojson ${fileInputNameticketplus} > ${fileOutputNameticketplus}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV ticketplus convertido a JSON correctamente.');
+});
 
 //----------------begin panamcred convertion
 
@@ -106,7 +141,14 @@ XLSX.writeFile(panamcred, folderName+'/panamcred.csv', { bookType: "csv" });
 let fileInputNamepanamcred = folderName+'/panamcred.csv'; 
 let fileOutputNamepanamcred = folderName+'/panamcred.json';
 
-csvToJson.generateJsonFileFromCsv(fileInputNamepanamcred,fileOutputNamepanamcred);
+exec(`csvtojson ${fileInputNamepanamcred} > ${fileOutputNamepanamcred}`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('Archivo CSV panamcred convertido a JSON correctamente.');
+});
 
 //delete a specific row
 function ec(r, c){
