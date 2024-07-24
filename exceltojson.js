@@ -1,6 +1,7 @@
 XLSX = require('xlsx');
 var constants = require('./constants');
 const { exec } = require('child_process');
+var mv = require('mv');
 
 const d = new Date();
 let month = d.getMonth();
@@ -148,6 +149,18 @@ exec(`csvtojson ${fileInputNamepanamcred} > ${fileOutputNamepanamcred}`, (err, s
   }
 
   console.log('Archivo CSV panamcred convertido a JSON correctamente.');
+});
+
+archive_files();
+
+
+exec(`node create_item.js`, (err, stdout, stderr) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log('pdftoexcel finalizado correctamente.');
 });
 
 //delete a specific row
@@ -348,4 +361,48 @@ function depure_panamcred(ws,row_index){
         
         //move type
         move_description(bonus,R+2);
+}
+function archive_files(){
+
+mv('../resources/Movimientos de Cuenta (1).pdf', folderName+'/Movimientos de Cuenta (1).pdf', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
+
+mv('../resources/Movimientos de Cuenta.pdf', folderName+'/Movimientos de Cuenta.pdf', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
+
+mv('../resources/Estado de Cuenta de Tarjetas de Crédito_ XXXX-XXXX-XXXX-2819.pdf', folderName+'/Estado de Cuenta de Tarjetas de Crédito_ XXXX-XXXX-XXXX-2819.pdf', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
+
+mv('../resources/Detalle_de_cuenta_01050614000614308607.xlsx', folderName+'/Detalle_de_cuenta_01050614000614308607.xlsx', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
+
+mv('../resources/Detalle_Tpago.xlsx', folderName+'/Detalle_Tpago.xlsx', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
+
+mv('../resources/Mercantil Banco, Sistema de Banca por Internet.xlsx', folderName+'/Mercantil Banco, Sistema de Banca por Internet.xlsx', function(err) {
+  // done. it tried fs.rename first, and then falls back to
+  // piping the source file to the dest file and then unlinking
+  // the source file.
+  console.log('Error moving files'+err);
+});
 }
