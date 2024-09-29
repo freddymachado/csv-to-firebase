@@ -7,8 +7,32 @@ const d = new Date();
 let month = d.getMonth();
 const folderName = '../resources/'+constants.MONTHS[month];
 
+
+const cestaticketPath = '../resources/Movimientos de Cuenta (1).pdf';
+const ticketplusPath = '../resources/Movimientos de Cuenta.pdf';
+const panamcredPath = '../resources/Estado de Cuenta de Tarjetas de Crédito_ XXXX-XXXX-XXXX-2819.pdf';
+const merdebPath = '../resources/Detalle_de_cuenta_01050614000614308607.xlsx';
+const tpagoPath = '../resources/Detalle_Tpago.xlsx';
+const panamdebPath = '../resources/Mercantil Banco, Sistema de Banca por Internet.xlsx';
+
 //convert xls to pdf
 try { 
+  //Check file paths
+  if (fs.existsSync(cestaticketPath) &&
+  fs.existsSync(ticketplusPath) &&
+  fs.existsSync(panamcredPath) &&
+  fs.existsSync(merdebPath) &&
+  fs.existsSync(tpagoPath) &&
+  fs.existsSync(panamdebPath)) {
+      // File exists, proceed with your script
+      console.log('Files exists:', filePath);
+  } else {
+      console.error('File does not exist:', filePath);
+      // Handle the error, e.g., create the file, exit the script, etc.
+      process.exit(1); // Exit the script with an error code
+  }
+  
+  //convert xls to pdf
     //if folder does not exist
     if (!fs.existsSync(folderName)) {
       fs.mkdirSync(folderName);
