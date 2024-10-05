@@ -25,9 +25,9 @@ try {
   fs.existsSync(tpagoPath) &&
   fs.existsSync(panamdebPath)) {
       // File exists, proceed with your script
-      console.log('Files exists:', filePath);
+      console.log('Files exists');
   } else {
-      console.error('File does not exist:', filePath);
+      console.error('File does not exist');
       // Handle the error, e.g., create the file, exit the script, etc.
       process.exit(1); // Exit the script with an error code
   }
@@ -51,5 +51,5 @@ exec(`node exceltojson.js`, (err, stdout, stderr) => {
     return;
   }
 
-  console.log('pdftoexcel finalizado correctamente.');
+  console.log('pdftoexcel finalizado correctamente.'+stdout+stderr);
 });
