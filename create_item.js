@@ -1,6 +1,7 @@
 const { Firestore } = require('@google-cloud/firestore');
 var constants = require('./constants');
 const fs = require('fs');
+const { isNumberObject } = require('util/types');
 require('dotenv').config();
 
 const CREDENTIALS = JSON.parse(process.env.CREDENTIALS);
@@ -49,6 +50,7 @@ try {
 
         for (let documentSnapshot of documentSnapshots) {
             if (documentSnapshot.exists) {
+                //if(documentSnapshot.data().No) to filter
                 // Agrega los datos del documento al array de la colección
                 collectionData.push(documentSnapshot.data());
                 //console.log(`Found document with data: ${documentSnapshot.ref.path}`);
@@ -64,14 +66,22 @@ try {
         // Guarda los datos de backup en el archivo JSON
         await fs.promises.writeFile(backupFilePath, JSON.stringify(backupData));
         // Extraer las referencias
-        const referencias = backupData.panamcred.map(item => item.Referencia);
+        const panamcredReferencias = backupData.panamcred.map(item => item.Referencia);
+        const merdebReferencias = backupData.merdeb.map(item => item.Referencia);
+        const tpagoReferencias = backupData.tpago.map(item => item.Referencia);
+        const panamdebReferencias = backupData.panamdeb.map(item => item.Referencia);
+        const cestaticketReferencias = backupData.panamcrcestaticketed.map(item => item.Transacción);
+        const ticketplusReferencias = backupData.ticketplus.map(item => item.Transacción);
         
-        console.log('Referencias del merdeb: ', referencias);
         //if collection does not exist, it will be created
         
         const incomes = [];
         
         const payments = [];
+
+        //count variables
+         let countExistences = 0;
+         let countWrites = 0;
         
         //--------------panamcred update
         
@@ -81,7 +91,7 @@ try {
         
             try {
                 await panamcred.add(record);
-                console.log('panamcred Records created.');
+                countWrites++;
             } catch (error) {
                 console.log(`Error at createRecord panamcred --> ${error}`);
             }
@@ -95,10 +105,10 @@ try {
             element['isConsolidated'] = false;
             const fecha = new Date(element['Transacción']);
             if(isNaN(fecha.getTime())){
-                if(!referencias.includes(element['Referencia'])){
+                if(!panamcredReferencias.includes(element['Referencia'])){
                     createPanamcredItem(element);
                 }else{
-                    console.error('item existente');
+                    countExistences++;
                 }
             }
             //TODO: If its a buy item, add its information to a revenue or waste list with consolidated columns, save it on firebase and do it with all files
@@ -108,162 +118,211 @@ try {
             }
         }
         
+        console.log('panamcred items existentes:', countExistences);
+        console.log('panamcred items inexistentes:', countWrites);
+        //--------------merdeb update
+
+         countExistences = 0;
+         countWrites = 0;
+
+        const merdeb = firestore.collection('merdeb');
+
+        const createmerdebItem = async (record) => {
+
+            try {
+                await merdeb.add(record);
+                countWrites++;
+            } catch (error) {
+                console.log(`Error at createRecord merdeb --> ${error}`);
+            }
+        };
+
+        //https://www.convertcsv.com/csv-to-json.htm
+        let merdebDatabase = require(folderName+'/merdeb.json');
+
+        for (let index = 0; index < merdebDatabase.length; index++) {
+            let element = merdebDatabase[index];
+            element['isConsolidated'] = false;
+            if(!merdebReferencias.includes(element['Referencia'])){
+                createmerdebItem(element);
+            }else{
+                countExistences++;
+            }
+            if(element['Tipo'] == 'ND'){
+                payments.push(merdebDatabase[index]);
+            }else if(element['Referencia'] != '000000000000000'){
+                incomes.push(merdebDatabase[index]);
+            }
+        }
+        console.log('merdeb items existentes:', countExistences);
+        console.log('merdeb items inexistentes:', countWrites);
+
+        //--------------tpago update
+
+         countExistences = 0;
+         countWrites = 0;
+
+        const tpago = firestore.collection('tpago');
+
+        const createtpagoItem = async (record) => {
+
+            try {
+                await tpago.add(record);
+                countWrites++;
+            } catch (error) {
+                console.log(`Error at createRecord tpago --> ${error}`);
+            }
+        };
+
+        //https://www.convertcsv.com/csv-to-json.htm
+        let tpagoDatabase = require(folderName+'/tpago.json');
+
+        for (let index = 0; index < tpagoDatabase.length; index++) {
+            let element = tpagoDatabase[index];
+            if(!tpagoReferencias.includes(element['Referencia'])){
+                createtpagoItem(element);
+            }else{
+                countExistences++;
+            }
+            if(element['Tipo'] == 'ND'){
+                payments.push(tpagoDatabase[index]);
+            }else {
+                incomes.push(tpagoDatabase[index]);
+            }
+        }
+        console.log('tpago items existentes:', countExistences);
+        console.log('tpago items inexistentes:', countWrites);
+
+
+        //--------------panamdeb update
+
+         countExistences = 0;
+         countWrites = 0;
+
+
+        const panamdeb = firestore.collection('panamdeb');
+
+        const createPanamdebItem = async (record) => {
+
+            try {
+                await panamdeb.add(record);
+                countWrites++;
+            } catch (error) {
+                console.log(`Error at createRecord panamdeb --> ${error}`);
+            }
+        };
+
+        //https://www.convertcsv.com/csv-to-json.htm
+        let panamdebDatabase = require(folderName+'/panamdeb.json');
+
+        for (let index = 0; index < panamdebDatabase.length; index++) {
+            let element = panamdebDatabase[index];
+            element['isConsolidated'] = false;
+            if(!panamdebReferencias.includes(element['No'][' de Referencia'])){
+                element['Referencia'] = element['No'][' de Referencia'];
+                createPanamdebItem(element);
+            }else{
+                countExistences++;
+            }
+            if(element['Débito'] != ''){
+                payments.push(element);
+            }else{
+                incomes.push(element);
+            }
+        }
+        console.log('panamdeb items existentes:', countExistences);
+        console.log('panamdeb items inexistentes:', countWrites);
+
+        //--------------cestaticket update
+
+         countExistences = 0;
+         countWrites = 0;
+        const cestaticket = firestore.collection('panamcrcestaticketed');
+
+        const createcestaticketItem = async (record) => {
+
+            try {
+                await cestaticket.add(record);
+                countWrites++;
+            } catch (error) {
+                console.log(`Error at createRecord cestaticket --> ${error}`);
+            }
+        };
+
+        //https://www.convertcsv.com/csv-to-json.htm
+        let cestaticketDatabase = require(folderName+'/cestaticket.json');
+
+        for (let index = 0; index < cestaticketDatabase.length; index++) {
+            let element = cestaticketDatabase[index];
+            element['isConsolidated'] = false;
+            if(!cestaticketReferencias.includes(element['Transacción'])){
+                createcestaticketItem(element);
+            }else{
+                countExistences++;
+            }
+            if(element['Movimiento'] == 'COMPRA'){
+                payments.push(element);
+            }else{
+                incomes.push(element);
+            }
+        }
+        console.log('cestaticket items existentes:', countExistences);
+        console.log('cestaticket items inexistentes:', countWrites);
+
+        //--------------ticketplus update
+
+         countExistences = 0;
+         countWrites = 0;
+
+        const ticketplus = firestore.collection('ticketplus');
+
+        const createticketplusItem = async (record) => {
+            // Especifica la ruta del archivo de backup
+            const incomesFilePath = './incomesBackup.json';
+            
+            // Especifica la ruta del archivo de backup
+            const paymentsFilePath = './paymentsBackup.json';
+
+            try {
+                await ticketplus.add(record);
+                countWrites++;
+                // Guarda los datos de backup en el archivo JSON
+                await fs.promises.writeFile(incomesFilePath, JSON.stringify(incomes));
+                // Guarda los datos de backup en el archivo JSON
+                await fs.promises.writeFile(paymentsFilePath, JSON.stringify(payments));
+            } catch (error) {
+                console.log(`Error at createRecord ticketplus --> ${error}`);
+            }
+        };
+
+        //https://www.convertcsv.com/csv-to-json.htm
+        let ticketplusDatabase = require(folderName+'/ticketplus.json');
+
+        for (let index = 0; index < ticketplusDatabase.length; index++) {
+            let element = ticketplusDatabase[index];
+            element['isConsolidated'] = false;
+            if(!ticketplusReferencias.includes(element['Transacción'])){
+                createticketplusItem(element);
+            }else{
+                countExistences++;
+            }
+            if(element['Movimiento'] == 'RECARGA'){
+                incomes.push(ticketplusDatabase[index]);
+            }else{
+                payments.push(ticketplusDatabase[index]);
+            }
+        }
+        console.log('ticketplus items existentes:', countExistences);
+        console.log('ticketplus items inexistentes:', countWrites);
+        console.log('create_item finalizado correctamente.'); 
+         
     });
     // Filtra las referencias de la colección 'panamcred' para el mes actual
     //.filter(doc => doc.fecha >= firstDayOfMonth && doc.fecha <= now)
 } catch (error) {
     console.error('Error al realizar el backup:', error);
 }
-/* 
-//--------------merdeb update
 
-const merdeb = firestore.collection('merdeb');
-
-const createmerdebItem = async (record) => {
-
-    try {
-        await merdeb.add(record);
-        console.log('merdeb Records created.');
-    } catch (error) {
-        console.log(`Error at createRecord merdeb --> ${error}`);
-    }
-};
-
-//https://www.convertcsv.com/csv-to-json.htm
-let merdebDatabase = require(folderName+'/merdeb.json');
-
-for (let index = 0; index < merdebDatabase.length; index++) {
-    let element = merdebDatabase[index];
-    element['isConsolidated'] = false;
-    createmerdebItem(element);
-    if(element['Tipo'] == 'ND'){
-        payments.push(merdebDatabase[index]);
-    }else if(element['Referencia'] != '000000000000000'){
-        incomes.push(merdebDatabase[index]);
-    }
-}
-
-//--------------tpago update
-
-const tpago = firestore.collection('tpago');
-
-const createtpagoItem = async (record) => {
-
-    try {
-        await tpago.add(record);
-        console.log('tpago Records created.');
-    } catch (error) {
-        console.log(`Error at createRecord tpago --> ${error}`);
-    }
-};
-
-//https://www.convertcsv.com/csv-to-json.htm
-let tpagoDatabase = require(folderName+'/tpago.json');
-
-for (let index = 0; index < tpagoDatabase.length; index++) {
-    let element = tpagoDatabase[index];
-    createtpagoItem(element);
-    if(element['Tipo'] == 'ND'){
-        payments.push(tpagoDatabase[index]);
-    }else {
-        incomes.push(tpagoDatabase[index]);
-    }
-}
-
-
-//--------------panamdeb update
-
-
-const panamdeb = firestore.collection('panamdeb');
-
-const createPanamdebItem = async (record) => {
-
-    try {
-        await panamdeb.add(record);
-        console.log('panamdeb Records created.');
-    } catch (error) {
-        console.log(`Error at createRecord panamdeb --> ${error}`);
-    }
-};
-
-//https://www.convertcsv.com/csv-to-json.htm
-let panamdebDatabase = require(folderName+'/panamdeb.json');
-
-for (let index = 0; index < panamdebDatabase.length; index++) {
-    let element = panamdebDatabase[index];
-    element['isConsolidated'] = false;
-    createPanamdebItem(element);
-    if(element['Débito'] != ''){
-        payments.push(panamdebDatabase[index]);
-    }else{
-        incomes.push(panamdebDatabase[index]);
-    }
-}
-
-//--------------cestaticket update
-const cestaticket = firestore.collection('panamcrcestaticketed');
-
-const createcestaticketItem = async (record) => {
-
-    try {
-        await cestaticket.add(record);
-        console.log('cestaticket Records created.');
-    } catch (error) {
-        console.log(`Error at createRecord cestaticket --> ${error}`);
-    }
-};
-
-//https://www.convertcsv.com/csv-to-json.htm
-let cestaticketDatabase = require(folderName+'/cestaticket.json');
-
-for (let index = 0; index < cestaticketDatabase.length; index++) {
-    let element = cestaticketDatabase[index];
-    element['isConsolidated'] = false;
-    createcestaticketItem(element);
-    if(element['Movimiento'] == 'COMPRA'){
-        payments.push(cestaticketDatabase[index]);
-    }else{
-        incomes.push(cestaticketDatabase[index]);
-    }
-}
-
-//--------------ticketplus update
-
-const ticketplus = firestore.collection('ticketplus');
-
-const createticketplusItem = async (record) => {
-    // Especifica la ruta del archivo de backup
-    const incomesFilePath = './incomesBackup.json';
-    
-    // Especifica la ruta del archivo de backup
-    const paymentsFilePath = './paymentsBackup.json';
-
-    try {
-        await ticketplus.add(record);
-        console.log('ticketplus Records created.');
-        // Guarda los datos de backup en el archivo JSON
-        await fs.promises.writeFile(incomesFilePath, JSON.stringify(incomes));
-        // Guarda los datos de backup en el archivo JSON
-        await fs.promises.writeFile(paymentsFilePath, JSON.stringify(payments));
-    } catch (error) {
-        console.log(`Error at createRecord ticketplus --> ${error}`);
-    }
-};
-
-//https://www.convertcsv.com/csv-to-json.htm
-let ticketplusDatabase = require(folderName+'/ticketplus.json');
-
-for (let index = 0; index < ticketplusDatabase.length; index++) {
-    let element = ticketplusDatabase[index];
-    element['isConsolidated'] = false;
-    createticketplusItem(element);
-    if(element['Movimiento'] == 'RECARGA'){
-        incomes.push(ticketplusDatabase[index]);
-    }else{
-        payments.push(ticketplusDatabase[index]);
-    }
-}
-console.log('create_item finalizado correctamente.'+stdout); */
 //TODO: once two consolidated lists are filled, order them and add them to consolidated gsheet
 //console.log(incomes);
 //console.log(payments);
