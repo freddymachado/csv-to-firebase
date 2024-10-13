@@ -149,19 +149,20 @@ exec(`csvtojson ${fileInputNamepanamcred} > ${fileOutputNamepanamcred}`, (err, s
   }
 
   console.log('Archivo CSV panamcred convertido a JSON correctamente.');
-});
-
-archive_files();
-
-
+  
 exec(`node create_item.js`, (err, stdout, stderr) => {
   if (err) {
     console.error(err);
     return;
   }
+  console.log('exceltojson finalizado correctamente.'+stdout);
 
-  console.log('pdftoexcel finalizado correctamente.');
 });
+});
+
+archive_files();
+
+
 
 //delete a specific row
 function ec(r, c){
@@ -183,16 +184,16 @@ function row_to_column(ws, row_index){
     var C = variable.s.c
     if(ws[ec(R-1,C+1)]==null){
         ws[ec(R-1,C+1)] = ws[ec(R,C)];
-        console.log('trx');
+        //console.log('trx');
     }else if(ws[ec(R-1,C+2)]==null){
         ws[ec(R-1,C+2)] = ws[ec(R,C)];
-        console.log('desc');
+        //console.log('desc');
     }else{
         ws[ec(R-1,C+3)] = ws[ec(R,C)];
-        console.log('mov');
+        //console.log('mov');
     }
     delete_row(ws, R);
-    console.log('finish row_to_column');
+    //console.log('finish row_to_column');
 }
 function add_header(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
@@ -210,9 +211,9 @@ function add_header(ws, row_index){
     ws[ec(R,C+4)] = ws[ec(R+6,C)];
     ws[ec(R,C+5)] = ws[ec(R+7,C+1)]; 
     var cellValue = ws[XLSX.utils.encode_cell({c: C+5, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
-    console.log(cellValue);
+    //console.log(cellValue);
        
-    console.log('finish add_header');
+    //console.log('finish add_header');
 }
 function delete_rows(ws, row_index,final_index){
     for (var i = row_index;i<final_index;i++){
@@ -226,21 +227,21 @@ function move_type(ws, row_index) {
   
     // Get cell value with error handling
     var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : 'null';
-    console.log(cellValue);
+    //console.log(cellValue);
   
     // Check if cell value exists in constants.TRX_TYPE (consider loose equality)
     if (constants.TRX_TYPE.includes(cellValue)) {
-      if (cellValue === 'DEBITO') {
+      if (cellValue === 'DEBITO' || cellValue === 'DEBITO AJUSTE') {
         row_to_column(ws, row_index);
         delete_row(ws, row_index);
-        console.warn(`finish DEBITO move type`);
+        //console.warn(`finish DEBITO move type`);
       } else {
         row_to_column(ws, row_index);
-        console.warn(`finish move type`);
+        //console.warn(`finish move type`);
       }
     } else {
       // Handle empty or non-existent cell (optional: log error or delete row)
-      console.warn(`Cell(${R}, ${C}) is empty or not found.`);
+      //console.warn(`Cell(${R}, ${C}) is empty or not found.`);
       delete_row(ws, row_index);
       move_type(ws,row_index);
     }
@@ -251,14 +252,14 @@ function move_amount(ws, row_index){
     var C = variable.s.c
     ws[ec(R-1,C+4)] = ws[ec(R,C)];
     var cellValue = ws[XLSX.utils.encode_cell({c: C+1, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
-    console.log(cellValue);
+    //console.log(cellValue);
     if(cellValue==='Bs. -' || cellValue==='Bs.'){
         ws[ec(R-1,C+5)] = ws[ec(R,C+2)];
     }else{
         ws[ec(R-1,C+5)] = ws[ec(R,C+1)];
     }
     delete_row(ws, row_index);
-    console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
+    //console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
     if(row_index+1<variable.e.r){
         
         //move reference
@@ -314,9 +315,9 @@ function add_panamcredheader(ws, row_index){
     ws[ec(R,C+3)] = ws[ec(R+3,C+1)];
     ws[ec(R,C+4)] = ws[ec(R+3,C+2)];
     var cellValue = ws[XLSX.utils.encode_cell({c: C+5, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
-    console.log(cellValue);
+    //console.log(cellValue);
        
-    console.log('finish add_header');
+    //console.log('finish add_header');
 }
 function move_description(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
@@ -327,7 +328,7 @@ function move_description(ws, row_index){
     //add amount
     ws[ec(R-1,C+4)] = ws[ec(R,C+1)];
     delete_row(ws, R);
-    console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
+    //console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
     if(row_index+7<variable.e.r){
         
         //move date
