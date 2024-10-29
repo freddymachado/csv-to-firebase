@@ -68,7 +68,7 @@ const checkData = async (incomesArray, paymentsArray) =>{
         //obtain previously added data
         const lastDataIncomes = await getGSheetsData('Transacciones!G5:G',sheets);
         //console.log('lastData', lastDataIncomes.data.values); 
-        console.log(lastDataIncomes);
+        //console.log(lastDataIncomes);
         //console.log(payments);
     
     
@@ -76,17 +76,19 @@ const checkData = async (incomesArray, paymentsArray) =>{
             if(income['Referencia'] in lastDataIncomes){
                 console.log('rows already wrote: ', income['Referencia']);  
             }else{ 
-                if(income['Referencia'] != '')
+                if(income['Referencia'] != ''){
                     incomesValues.push([income['Referencia'], income['Fecha'], income['Monto']
-                        , income['Divisa'], income['Descripcion']]);
+                        , income['Divisa'], income['Descripcion'], income['Categoria']]);
+
+                }
             }        
         });
-        console.log('rows incomesValues: ', incomesValues);
+        //console.log('rows incomesValues: ', incomesValues);
     
         try{
             const gresponse = await sheets.spreadsheets.values.append({
             spreadsheetId: process.env.GOOGLE_SHEET_ID,
-                range: 'Transacciones!G5:K5',
+                range: 'Transacciones!G5:L5',
                 valueInputOption: 'USER_ENTERED',
                 requestBody:{
                     //TODO:Add each row and clasify depending on descriptions
@@ -108,17 +110,19 @@ const checkData = async (incomesArray, paymentsArray) =>{
             if(payment['Referencia'] in lastDataPayments){
                 console.log('rows already wrote: ', payment['Referencia']);  
             }else{ 
-                if(payment['Referencia'] != '')
+                if(payment['Referencia'] != ''){
                     paymentsValues.push([payment['Referencia'], payment['Fecha'], payment['Monto']
-                        , payment['Divisa'], payment['Descripcion']]);
+                        , payment['Divisa'], payment['Descripcion'],payment['Categoria']]);
+
+                }
             }        
         });
-        console.log('rows paymentsValues: ', paymentsValues);
+        //console.log('rows paymentsValues: ', paymentsValues);
     
         try{
             const gresponse = await sheets.spreadsheets.values.append({
             spreadsheetId: process.env.GOOGLE_SHEET_ID,
-                range: 'Transacciones!A5:E5',
+                range: 'Transacciones!A5:F5',
                 valueInputOption: 'USER_ENTERED',
                 requestBody:{
                     //TODO:Add each row and clasify depending on descriptions
@@ -144,7 +148,9 @@ try {
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
 
     // Obtén todos los documentos de la base de datos
-      /*   firestore.listCollections().then(async collections => {
+         firestore.listCollections().then(async collections => {
+            const currentMonth = new Date().getMonth(); // Get the current month (0-indexed)
+          
             for (let collection of collections) {
             console.log(`Found collection with id: ${collection.id}`);
 
@@ -154,17 +160,17 @@ try {
 
             // Crea un array para almacenar los datos de la colección
             const collectionData = [];
-
-            for (let documentSnapshot of documentSnapshots) {
-                if (documentSnapshot.exists) {
+            documentSnapshots.forEach(doc => {
+                console.log(doc.id, '=>', doc.data());
+                if (doc.exists) {
                     //if(documentSnapshot.data().No) to filter
                     // Agrega los datos del documento al array de la colección
-                    collectionData.push(documentSnapshot.data());
+                    collectionData.push(doc.data());
                     //console.log(`Found document with data: ${documentSnapshot.ref.path}`);
                 } else {
-                    console.log(`Found missing document: ${documentSnapshot.id}`);
+                    console.log(`Found missing document: ${doc.id}`);
                 }
-            }
+              });
 
             // Agrega el array de la colección al objeto de backup
             backupData[collection.id] = collectionData;
@@ -174,12 +180,8 @@ try {
             
             // Ejemplo de uso
             
+        await fs.promises.writeFile(backupFilePath, JSON.stringify(backupData));
             
-        }); */
-
-    backupData = leerJSON(backupFilePath);
-
-        //await fs.promises.writeFile(backupFilePath, JSON.stringify(backupData));
         // Extraer las referencias
         const panamcredReferencias = backupData.panamcred.map(item => item.Referencia);
         const merdebReferencias = backupData.merdeb.map(item => item.Referencia);
@@ -218,6 +220,7 @@ try {
         for (let index = 0; index < panamcredDatabase.length; index++) {
             let element = panamcredDatabase[index];
             element['isConsolidated'] = false;
+            element['Categoria'] = '';
             const fecha = new Date(element['Transacción']);
             if(isNaN(fecha.getTime())){
                 element['Fecha'] = element['Transacción'];
@@ -229,11 +232,11 @@ try {
                 }else{
                     countExistences++;
                 }
-            }
-            //TODO: If its a buy item, add its information to a revenue or waste list with consolidated columns, save it on firebase and do it with all files
-            if(element['Descripción'] != 'ABONO A SU CUENTA .... GRACIAS'){
-                incomes.push(element);
-                payments.push(element);
+                //TODO: If its a buy item, add its information to a revenue or waste list with consolidated columns, save it on firebase and do it with all files
+                if(element['Descripción'] != 'ABONO A SU CUENTA .... GRACIAS'){
+                    incomes.push(element);
+                    payments.push(element);
+                }
             }
         }
         
@@ -261,9 +264,13 @@ try {
 
         for (let index = 0; index < merdebDatabase.length; index++) {
             let element = merdebDatabase[index];
-            element['Monto'] = element[''];
-            element['Divisa'] = element['Monto Bs.'];
+            element['Divisa'] = element['Monto Bs.'].replace('-', '');
+            element['Categoria'] = '';
             element['Descripcion'] = element['Descripción'];
+            if(element['Descripcion'].includes('PAGO DE NOMINA')){
+                console.log('Categoria Sueldo')
+                element['Categoria'] = 'Sueldo';
+            }
             if(!merdebReferencias.includes(element['Referencia'])){
                 createmerdebItem(element);
             }else{
@@ -300,7 +307,7 @@ try {
 
         for (let index = 0; index < tpagoDatabase.length; index++) {
             let element = tpagoDatabase[index];
-            element['Monto'] = '';
+            element['Categoria'] = '';
             element['Divisa'] = element['Monto Bs.'];
             element['Descripcion'] = element['teléfono'];
             if(!tpagoReferencias.includes(element['Referencia'])){
@@ -342,8 +349,37 @@ try {
         for (let index = 0; index < panamdebDatabase.length; index++) {
             let element = panamdebDatabase[index];
             element['Divisa'] = 'USD';
+            element['Categoria'] = '';
             element['Descripcion'] = element['Descripción'];
             element['Referencia'] = element['No'][' de Referencia'];
+            if(element['Descripcion'].includes('ACREDITA CUENTAS')){
+                console.log('Categoria Bonificaciones')
+                element['Categoria'] = 'Bonificaciones';
+            }
+            if(element['Descripcion'].includes('FORUM')){
+                console.log('Categoria Comida')
+                element['Categoria'] = 'Comida';
+            }
+            if(element['Descripcion'].includes('FACEBK')){
+                console.log('Categoria Préstamos')
+                element['Categoria'] = 'Préstamos';
+            }
+            if(element['Descripcion'].includes('PAGO TDC')){
+                console.log('Categoria Pagos créditos')
+                element['Categoria'] = 'Pagos créditos';
+            }
+            if(element['Descripcion'].includes('Google One')){
+                console.log('Categoria Gastos personales')
+                element['Categoria'] = 'Gastos personales';
+            }
+            if(element['Descripcion'].includes('FARMACIA SUSANA')){
+                console.log('Categoria Gastos personales')
+                element['Categoria'] = 'Gastos personales';
+            }
+            if(element['Descripcion'].includes('YUMMY RIDES')){
+                console.log('Categoria Transporte')
+                element['Categoria'] = 'Transporte';
+            }
             if(!panamdebReferencias.includes(element['No'][' de Referencia'])){
                 createPanamdebItem(element);
             }else{
@@ -381,9 +417,14 @@ try {
 
         for (let index = 0; index < cestaticketDatabase.length; index++) {
             let element = cestaticketDatabase[index];
-            element['Divisa'] = element['Monto'];
+            element['Divisa'] = element['Monto'].replace('Bs. -', '');
+            element['Categoria'] = '';
             element['Descripcion'] = element['Afiliado'];
             element['Referencia'] = element['Transacción'];
+            if(element['Descripcion'].includes('CESTATICKET C.A CARACAS')){
+                console.log('Categoria Bonificaciones')
+                element['Categoria'] = 'Bonificaciones';
+            }
             if(!cestaticketReferencias.includes(element['Transacción'])){
                 createcestaticketItem(element);
             }else{
@@ -429,10 +470,11 @@ try {
 
         for (let index = 0; index < ticketplusDatabase.length; index++) {
             let element = ticketplusDatabase[index];
-            element['Divisa'] = element['Monto'];
+            element['Divisa'] = element['Monto'].replace('Bs. -', '').replace('Bs. ', '');
+            element['Categoria'] = '';
             element['Descripcion'] = element['Afiliado'];
-            element['Referencia'] = element['Transacción'];
-            if(!ticketplusReferencias.includes(element['Transacción'])){
+            element['Referencia'] = element['Número de Transacción'];
+            if(!ticketplusReferencias.includes(element['Número de Transacción'])){
                 createticketplusItem(element);
             }else{
                 countExistences++;
@@ -451,6 +493,10 @@ try {
         checkData(incomes, payments)
     // Filtra las referencias de la colección 'panamcred' para el mes actual
     //.filter(doc => doc.fecha >= firstDayOfMonth && doc.fecha <= now)
+        }); 
+
+        //backupData = leerJSON(backupFilePath);
+
 } catch (error) {
     console.error('Error al realizar el backup:', error);
 }
