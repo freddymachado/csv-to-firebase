@@ -111,7 +111,7 @@ exec(`csvtojson ${fileInputNamecestaticket} > ${fileOutputNamecestaticket}`, (er
 
 const ticketplus = XLSX.readFile(folderName+'/ticketplus.xlsx');
 
-depure_bonus(ticketplus, 0);
+depure_bonus2(ticketplus, 0);
         
 //convert to csv
 XLSX.writeFile(ticketplus, folderName+'/ticketplus.csv', { bookType: "csv" });
@@ -160,7 +160,7 @@ exec(`node create_item.js`, (err, stdout, stderr) => {
 });
 });
 
-archive_files();
+//archive_files();
 
 
 
@@ -215,6 +215,27 @@ function add_header(ws, row_index){
        
     //console.log('finish add_header');
 }
+function add_header2(ws, row_index){
+    var variable = XLSX.utils.decode_range(ws["!ref"])
+    var R = row_index
+    //add columns
+    variable.e.c++
+    variable.e.c++
+    variable.e.c++
+    variable.e.c++
+    var C = variable.s.c
+    ws["!ref"] = XLSX.utils.encode_range(variable);
+    //add header
+    ws[ec(R,C+1)] = ws[ec(R+1,C)];
+    ws[ec(R,C+2)] = ws[ec(R+2,C)];
+    ws[ec(R,C+3)] = ws[ec(R+3,C)];
+    ws[ec(R,C+4)] = ws[ec(R+4,C)];
+    ws[ec(R,C+5)] = ws[ec(R+4,C+1)]; 
+    var cellValue = ws[XLSX.utils.encode_cell({c: C+5, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
+    //console.log(cellValue);
+       
+    //console.log('finish add_header');
+}
 function delete_rows(ws, row_index,final_index){
     for (var i = row_index;i<final_index;i++){
         delete_row(ws, row_index);
@@ -246,6 +267,32 @@ function move_type(ws, row_index) {
       move_type(ws,row_index);
     }
   }
+  function move_type2(ws, row_index) {
+      var variable = XLSX.utils.decode_range(ws["!ref"]);
+      var R = row_index;
+      var C = variable.s.c;
+    
+      // Get cell value with error handling
+      var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : 'null';
+      //console.log(cellValue);
+    
+      // Check if cell value exists in constants.TRX_TYPE (consider loose equality)
+      if (constants.TRX_TYPE.includes(cellValue)) {
+        if (cellValue === 'DEBITO' || cellValue === 'DEBITO AJUSTE') {
+          row_to_column(ws, row_index);
+          //delete_row(ws, row_index);
+          //console.warn(`finish DEBITO move type`);
+        } else {
+          row_to_column(ws, row_index);
+          //console.warn(`finish move type`);
+        }
+      } else {
+        // Handle empty or non-existent cell (optional: log error or delete row)
+        //console.warn(`Cell(${R}, ${C}) is empty or not found.`);
+        delete_row(ws, row_index);
+        move_type(ws,row_index);
+      }
+    }
 function move_amount(ws, row_index){
     var variable = XLSX.utils.decode_range(ws["!ref"])
     var R = row_index
@@ -254,7 +301,7 @@ function move_amount(ws, row_index){
     var cellValue = ws[XLSX.utils.encode_cell({c: C+1, r: R})] ? ws[XLSX.utils.encode_cell({c: C+1, r: R})].v : 'null';
     //console.log(cellValue);
     if(cellValue==='Bs. -' || cellValue==='Bs.'){
-        ws[ec(R-1,C+5)] = ws[ec(R,C+2)];
+        ws[ec(R-1,C+5)] = ws[ec(R,C+1)];
     }else{
         ws[ec(R-1,C+5)] = ws[ec(R,C+1)];
     }
@@ -274,6 +321,32 @@ function move_amount(ws, row_index){
         //move status & amount
         move_amount(ws,R+1);
     }
+}
+function move_amount2(ws, row_index){
+    var variable = XLSX.utils.decode_range(ws["!ref"])
+    var R = row_index
+    var C = variable.s.c
+    ws[ec(R-1,C+4)] = ws[ec(R,C)];
+    var cellValue = ws[XLSX.utils.encode_cell({c: C, r: R})] ? ws[XLSX.utils.encode_cell({c: C, r: R})].v : 'null';
+    console.log(cellValue);
+    ws[ec(R-1,C+5)] = ws[ec(R,C+1)];
+    delete_row(ws, row_index);
+    //console.log(`finish move_amount on row ${row_index} of ${variable.e.r}`);
+    if(row_index+1<variable.e.r){
+        
+        
+        //move reference
+        row_to_column(ws,R+1);
+        
+        //move description
+        row_to_column(ws,R+1);
+        
+        //move type
+        move_type2(ws,R+1);
+        
+        //move status & amount
+        move_amount2(ws,R+1);
+    } 
 }
 function depure_bonus(ws,row_index){     
     // read the worksheet
@@ -301,6 +374,34 @@ function depure_bonus(ws,row_index){
         
         //move status & amount
         move_amount(bonus,R+2);
+    //}    
+}
+function depure_bonus2(ws,row_index){     
+    // read the worksheet
+    const bonus = ws.Sheets["Sheet1"];
+    var R = row_index
+
+    //for(var R = row_index; R < variable.e.r; ++R){
+        
+        //depure bonus data
+        delete_rows(bonus, R,11);
+        
+        add_header2(bonus,R);
+        
+        //depure bonus header
+        delete_rows(bonus,R+1,5);
+        
+        //move reference
+        row_to_column(bonus,R+2);
+        
+        //move description
+        row_to_column(bonus,R+2);
+        
+        //move type
+        move_type2(bonus,R+2);
+        
+        //move status & amount
+        move_amount2(bonus,R+2);
     //}    
 }
 function add_panamcredheader(ws, row_index){
