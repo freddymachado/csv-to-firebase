@@ -224,7 +224,7 @@ try {
             const fecha = new Date(element['Transacción']);
             if(isNaN(fecha.getTime())){
                 element['Fecha'] = element['Transacción'];
-                element['Monto'] = element['Cargos $'];
+                element['Monto'] = element['Cargos $'].replace('.', ',');
                 element['Divisa'] = 'USD';
                 element['Descripcion'] = element['Descripción'];
                 if(!panamcredReferencias.includes(element['Referencia'])){
@@ -264,22 +264,28 @@ try {
 
         for (let index = 0; index < merdebDatabase.length; index++) {
             let element = merdebDatabase[index];
-            element['Divisa'] = element['Monto Bs.'].replace('-', '');
-            element['Categoria'] = '';
             element['Descripcion'] = element['Descripción'];
-            if(element['Descripcion'].includes('PAGO DE NOMINA')){
-                console.log('Categoria Sueldo')
-                element['Categoria'] = 'Sueldo';
-            }
-            if(!merdebReferencias.includes(element['Referencia'])){
-                createmerdebItem(element);
-            }else{
-                countExistences++;
-            }
-            if(element['Tipo'] == 'ND'){
-                payments.push(merdebDatabase[index]);
-            }else if(element['Referencia'] != '000000000000000'){
-                incomes.push(merdebDatabase[index]);
+            if(!element['Descripcion'].includes('PAGO MOVIL') && !element['Descripcion'].includes('CAMARA')){
+                element['Divisa'] = element['Monto Bs.'].replace('-', '').replace('.', ',');
+                element['Categoria'] = '';
+                if(element['Descripcion'].includes('PAGO DE NOMINA')){
+                    console.log('Categoria Sueldo')
+                    element['Categoria'] = 'Sueldo';
+                }
+                if(element['Descripcion'].includes('COMISION')){
+                    console.log('Categoria Gastos')
+                    element['Categoria'] = 'Gastos personales';
+                }
+                if(!merdebReferencias.includes(element['Referencia'])){
+                    createmerdebItem(element);
+                }else{
+                    countExistences++;
+                }
+                if(element['Tipo'] == 'ND'){
+                    payments.push(merdebDatabase[index]);
+                }else if(element['Referencia'] != '000000000000000'){
+                    incomes.push(merdebDatabase[index]);
+                }
             }
         }
         console.log('merdeb items existentes:', countExistences);
@@ -308,7 +314,7 @@ try {
         for (let index = 0; index < tpagoDatabase.length; index++) {
             let element = tpagoDatabase[index];
             element['Categoria'] = '';
-            element['Divisa'] = element['Monto Bs.'];
+            element['Divisa'] = element['Monto Bs.'].replace('.', ',');
             element['Descripcion'] = element['teléfono'];
             if(!tpagoReferencias.includes(element['Referencia'])){
                 createtpagoItem(element);
@@ -356,6 +362,18 @@ try {
                 console.log('Categoria Bonificaciones')
                 element['Categoria'] = 'Bonificaciones';
             }
+            if(element['Descripcion'].includes('PAGO TDC')){
+                console.log('Categoria Pagos créditos')
+                element['Categoria'] = 'Pagos créditos';
+            }
+            if(element['Descripcion'].includes('LUNCHERIA')){
+                console.log('Categoria Restaurantes')
+                element['Categoria'] = 'Restaurants';
+            }
+            if(element['Descripcion'].includes('DOYLE DURAN')){
+                console.log('Categoria Restaurantes')
+                element['Categoria'] = 'Restaurants';
+            }
             if(element['Descripcion'].includes('FORUM')){
                 console.log('Categoria Comida')
                 element['Categoria'] = 'Comida';
@@ -386,10 +404,10 @@ try {
                 countExistences++;
             }
             if(element['Débito'] != ''){
-                element['Monto'] = element['Débito'];
+                element['Monto'] = element['Débito'].replace('.', ',');
                 payments.push(element);
             }else{
-                element['Monto'] = element['Crédito'];
+                element['Monto'] = element['Crédito'].replace('.', ',');
                 incomes.push(element);
             }
         }
@@ -417,13 +435,17 @@ try {
 
         for (let index = 0; index < cestaticketDatabase.length; index++) {
             let element = cestaticketDatabase[index];
-            element['Divisa'] = element['Monto'].replace('Bs. -', '');
+            element['Divisa'] = element['Monto'].replace('Bs. -', '').replace('.', ',');
             element['Categoria'] = '';
             element['Descripcion'] = element['Afiliado'];
             element['Referencia'] = element['Transacción'];
             if(element['Descripcion'].includes('CESTATICKET C.A CARACAS')){
                 console.log('Categoria Bonificaciones')
                 element['Categoria'] = 'Bonificaciones';
+            }
+            if(element['Descripcion'].includes('DOYLE DURAN')){
+                console.log('Categoria Restaurantes')
+                element['Categoria'] = 'Restaurants';
             }
             if(!cestaticketReferencias.includes(element['Transacción'])){
                 createcestaticketItem(element);
@@ -470,16 +492,20 @@ try {
 
         for (let index = 0; index < ticketplusDatabase.length; index++) {
             let element = ticketplusDatabase[index];
-            element['Divisa'] = element['Monto'].replace('Bs. -', '').replace('Bs. ', '');
+            element['Divisa'] = element['field6'].replace('Bs. -', '').replace('Bs. ', '').replace('.', ',');
             element['Categoria'] = '';
             element['Descripcion'] = element['Afiliado'];
             element['Referencia'] = element['Número de Transacción'];
+            if(element['Afiliado'].includes('Recarga')){
+                console.log('Categoria Internet')
+                element['Categoria'] = 'Internet';
+            }
             if(!ticketplusReferencias.includes(element['Número de Transacción'])){
                 createticketplusItem(element);
             }else{
                 countExistences++;
             }
-            if(element['Movimiento'] == 'RECARGA'){
+            if(element['Tipo de Movimiento'] == 'RECARGA'){
                 incomes.push(ticketplusDatabase[index]);
             }else{
                 payments.push(ticketplusDatabase[index]);
