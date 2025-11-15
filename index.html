@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consumo en Paquetes por Dispositivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Consumo en Paquetes por Dispositivo (Últimas 24 Horas)</h1>
+    <canvas id="networkChart" width="800" height="400"></canvas>
+    <script>
+        // Datos preparados directamente
+        const chartData = {"lan1":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"lan2":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"lan3":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"lan4":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"WAN0":{"rxPkt":[3094817,3218810,3282768],"txPkt":[1057382,1173295,1213432],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"w1":{"rxPkt":[1105081,1250828,1291266],"txPkt":[3126039,3252331,3319232],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"w2":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]},"w3":{"rxPkt":[0,0,0],"txPkt":[0,0,0],"timestamps":["2025-03-22T17:30:02.340Z","2025-03-22T18:30:02.313Z","2025-03-22T19:50:39.065Z"]}};
+
+        const ctx = document.getElementById('networkChart').getContext('2d');
+        const datasets = [];
+        const timestamps = chartData[Object.keys(chartData)[0]].timestamps;
+
+        // Filtra los dispositivos con valores diferentes de cero
+        Object.keys(chartData).forEach(device => {
+            const rxSum = chartData[device].rxPkt.reduce((sum, value) => sum + value, 0);
+            const txSum = chartData[device].txPkt.reduce((sum, value) => sum + value, 0);
+
+            if (rxSum > 0 || txSum > 0) {
+                datasets.push({
+                    label: `${device} - Rx Pkt`,
+                    data: chartData[device].rxPkt,
+                    borderColor: getRandomColor(),
+                    borderWidth: 2,
+                    fill: false
+                });
+                datasets.push({
+                    label: `${device} - Tx Pkt`,
+                    data: chartData[device].txPkt,
+                    borderColor: getRandomColor(),
+                    borderWidth: 2,
+                    fill: false
+                });
+            }
+        });
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timestamps,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: true, text: 'Consumo en Paquetes por Dispositivo' }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'Tiempos' } },
+                    y: { title: { display: true, text: 'Paquetes' } }
+                }
+            }
+        });
+
+        function getRandomColor() {
+            return `rgba(${Math.floor(Math.random() * 255)}, 
+                          ${Math.floor(Math.random() * 255)}, 
+                          ${Math.floor(Math.random() * 255)}, 0.7)`;
+        }
+    </script>
+</body>
+</html>
+    
