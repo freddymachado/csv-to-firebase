@@ -17,7 +17,7 @@ const db = new Firestore({
 // Obtén la referencia a la base de datos Firestore
 
 // Especifica la ruta del archivo de backup
-const backupFilePath = './firestoreBackup.json';
+const backupFilePath = './firestoreBackup3.json';
 
 // Función para realizar el backup
 async function backupFirestore() {
