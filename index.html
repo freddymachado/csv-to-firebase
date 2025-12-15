@@ -12,10 +12,11 @@
     <!--Add buttons to initiate auth sequence and sign out-->
     <button id="authorize_button" onclick="handleAuthClick()">Authorize</button>
     <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
+    <button id="save_button" onclick="saveParsed()" style="display:none">Save parsed to Firestore</button>
 
+    <pre id="content3" style="white-space: pre-wrap;"></pre>
     <pre id="content" style="white-space: pre-wrap;"></pre>
     <pre id="content2" style="white-space: pre-wrap;"></pre>
-
 
     <script type="text/javascript">
       /* exported gapiLoaded */
@@ -169,7 +170,7 @@
           return;
         }
         // For each message, fetch the full message and decode the body (base64url)
-        const decodedBodies = await Promise.all(messages.map(async (m) => {
+        const decodedMessages = await Promise.all(messages.map(async (m) => {
           try {
             const msgRes = await gapi.client.gmail.users.messages.get({
               userId: 'me',
@@ -178,15 +179,51 @@
             });
             const payload = msgRes.result.payload;
             const raw = getMessageBody(payload);
-            if (!raw) return '(no body)';
-            return decodeBase64Url(raw);
+            const headersArr = msgRes.result.payload.headers || [];
+            const headerVal = (name) => (headersArr.find(h => h.name.toLowerCase() === name.toLowerCase()) || {}).value || '';
+            const headers = {
+              Subject: headerVal('Subject'),
+              From: headerVal('From'),
+              Date: headerVal('Date'),
+            };
+            const body = raw ? decodeBase64Url(raw) : '(no body)';
+            return { id: m.id, body, headers };
           } catch (e) {
-            return `(error fetching ${m.id}: ${e.message || e})`;
+            return { id: m.id, body: `(error fetching ${m.id}: ${e.message || e})`, headers: {} };
           }
         }));
 
-        const output = ['Messages:'].concat(decodedBodies).join('\n\n---\n\n');
+        const output = ['Messages:'].concat(decodedMessages.map(d => d.body)).join('\n\n---\n\n');
         document.getElementById('content2').innerText = output;
+
+        // Parse decoded messages (body + headers) into structured objects
+        const parsedRaw = decodedMessages.map(d => parseTransaction(d.body, d.headers));
+        // flatten results because parseTransaction may return an array when a body contains multiple operations
+        const parsed = parsedRaw.flatMap(p => Array.isArray(p) ? p : [p]);
+        // Save last parsed globally for the save button
+        window.lastParsed = parsed;
+        document.getElementById('content3').innerText = JSON.stringify(parsed, null, 2);
+        document.getElementById('save_button').style.display = parsed.length ? 'inline-block' : 'none';
+      }
+
+      // Save currently parsed rows to server API which writes to Firestore
+      async function saveParsed() {
+        const rows = window.lastParsed || [];
+        if (!rows.length) {
+          alert('No parsed rows to save');
+          return;
+        }
+        try {
+          const res = await fetch('http://127.0.0.1:3000/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rows),
+          });
+          const j = await res.json();
+          alert(`Saved ${j.saved || j.saved || rows.length} rows. Response: ${JSON.stringify(j)}`);
+        } catch (e) {
+          alert('Error saving parsed rows: ' + e.message || e);
+        }
       }
 
       // Helper: find the body data in the payload (walk parts)
@@ -220,6 +257,99 @@
         } catch (e) {
           // Fallback: return raw atob output
           try { return atob(b64); } catch (_) { return base64UrlString; }
+        }
+      }
+
+      // Parse a transaction-like text into a structured object or array of objects (when multiple OPERACION blocks exist)
+      function parseTransaction(text, headers = {}) {
+        if (!text) return {};
+        const t = text.replace(/\r/g, '\n');
+
+        // Detect multiple OPERACION blocks like "OPERACION 01" ... "OPERACION 02"
+        const opHeaderRegex = /^\s*OPERACION\s*\d+/gim;
+        const hasMultipleOps = opHeaderRegex.test(t);
+        if (hasMultipleOps) {
+          // Split by lines that start with OPERACION <number>
+          const parts = [];
+          const lines = t.split(/\r?\n/);
+          let current = null;
+          for (const line of lines) {
+            if (/^\s*OPERACION\s*\d+/i.test(line)) {
+              if (current !== null) parts.push(current.join('\n'));
+              current = [line];
+            } else {
+              if (current === null) current = [line]; else current.push(line);
+            }
+          }
+          if (current !== null) parts.push(current.join('\n'));
+          // Parse each operation block separately
+          const results = parts.map(p => parseSingleOp(p, headers));
+          // Flatten and return only non-empty results
+          return results.flat().filter(r => Object.keys(r).length);
+        }
+
+        // Single transaction body
+        return parseSingleOp(t, headers);
+      }
+
+      // Parse a single operation block or whole message into an object
+      function parseSingleOp(t, headers = {}) {
+        const get = (patterns) => {
+          for (const p of patterns) {
+            const m = t.match(p);
+            if (m && m[1]) return m[1].trim();
+          }
+          return '';
+        };
+
+        const canal = get([/Canal[:\s]*([^\n]+)/i, /CANAL[:\s]*([^\n]+)/i]);
+        const operacion = get([/Operaci[oó]n[:\s]*([^\n]+)/i, /OPERACION[:\s]*([^\n]+)/i]);
+        const fecha = get([/Fecha(?: y hora)?(?: de env[ií]o)?[:\s]*([0-3]?\d\/[01]?\d\/\d{4}(?:\s*[0-9:.APMapm]+)?)/i, /Fecha[:\s]*([^\n]+)/i]);
+        const fechaOperacion = get([/Fecha de la operaci[oó]n[:\s]*([0-3]?\d\/[01]?\d\/\d{4})/i, /FECHA DE LA OPERACION[:\s]*([0-3]?\d\/[01]?\d\/\d{4})/i]);
+        const horaOperacion = get([/Hora de la operaci[oó]n[:\s]*([0-9:.APMapm]+)/i, /HORA DE LA OPERACION[:\s]*([0-9:.APMapm]+)/i]);
+        const monto = get([/Monto[:\s]*([^\n]+)/i, /MONTO[:\s]*([^\n]+)/i, /Bs\.\s*[0-9.,]+/i, /BS\.\s*[0-9.,]+/i]);
+        const confirm = get([/N(?:ú|u)mero de confirmaci[oó]n[:\s]*([0-9A-Za-z-]+)/i, /N(?:ú|u)mero\s*de\s*confirmaci[oó]n[:\s]*([0-9-]+)/i, /NRO\.?\s*DE\s*AUTORIZACION[:\s]*([0-9A-Za-z-]+)/i]);
+        const referencia = get([/N(?:ú|u)mero de referencia[:\s]*([0-9A-Za-z-]+)/i, /Nro\. de referencia[:\s]*([0-9A-Za-z-]+)/i]);
+        const concepto = get([/Concepto[:\s]*([^\n]+)/i, /CONCEPTO[:\s]*([^\n]+)/i]);
+        const banco = get([/Banco destino[:\s]*([^\n]+)/i, /Banco[:\s]*([^\n]+)/i, /BANCO[:\s]*([^\n]+)/i]);
+        const cuentaDebito = get([/Cuenta d[eé]bito[:\s]*([^\n]+)/i, /Cuenta debito[:\s]*([^\n]+)/i, /(CA\s*\*+\d+)/i]);
+        const cuentaDestino = get([/Cuenta destino[:\s]*([^\n]+)/i, /(PT\s*\*+\d+)/i, /Cuenta\s*destino[:\s]*([^\n]+)/i]);
+        const beneficiario = get([/Beneficiario[:\s]*([^\n]+)/i, /Beneficiari[oó][:\s]*([^\n]+)/i, /BENEFICIARIO[:\s]*([^\n]+)/i]);
+        const instruccion = get([/Instrucci[oó]n de transferencia[:\s]*([^\n]+)/i, /Instrucci[oó]n[:\s]*([^\n]+)/i]);
+        const comercio = get([/NOMBRE DEL COMERCIO[:\s]*([^\n]+)/i, /Nombre del comercio[:\s]*([^\n]+)/i]);
+        const numeroTarjeta = get([/NUMERO DELA TARJETA DE CREDITO[:\s]*([^\n]+)/i, /NUMERO DE TARJETA DE CREDITO[:\s]*([^\n]+)/i, /Tarjeta de credito[:\s]*([^\n]+)/i, /(VISA\s*-?\*+\d+)/i, /-\*+\d+/i]);
+        const nroAutorizacion = get([/NRO\.?\s*DE\s*AUTORIZACION[:\s]*([0-9A-Za-z-]+)/i, /NRO\. DE AUTORIZACION[:\s]*([0-9-]+)/i]);
+        const nroOperacion = get([/NRO\.?\s*DE\s*OPERACION[:\s]*([0-9A-Za-z-() ]+)/i, /NRO\. DE OPERACION[:\s]*([0-9-() ]+)/i]);
+        const celular = get([/N(?:ú|u)mero de celular destino[:\s]*([^\n]+)/i, /celular destino[:\s]*([^\n]+)/i, /Tel[eé]fono[:\s]*([^\n]+)/i]);
+        const identificacion = get([/N(?:ú|u)mero de identificaci[oó]n Beneficiario[:\s]*([^\n]+)/i, /Identificaci[oó]n[:\s]*([A-Z0-9-]+)/i]);
+        const tipo = get([/Tipo de transferencia[:\s]*([^\n]+)/i, /Tipo[:\s]*([^\n]+)/i]);
+        const estado = get([/Estado de la transferencia[:\s]*([^\n]+)/i, /Estado[:\s]*([^\n]+)/i]);
+
+        if (monto != '') {
+          return {
+            'Canal': canal || (headers.Subject && headers.Subject.includes('MERCANTIL') ? 'MERCANTIL' : canal),
+            'Referencia': referencia == '' ? nroOperacion == '' ? confirm : nroOperacion : referencia,
+            'Fecha de la operación': fechaOperacion == '' ? fecha : fechaOperacion,
+            'Monto': monto,
+            'Destinatario': comercio == '' ? beneficiario == '' ? cuentaDestino : beneficiario : comercio,
+            'Concepto': concepto,
+            'Cuenta débito': cuentaDebito,
+            'Banco destino': banco,
+            'Instrucción de transferencia': instruccion,
+            'Hora de la operación': horaOperacion,
+            'Numero de tarjeta de credito': numeroTarjeta,
+            'Número de confirmación': confirm,
+            'Nro. de operacion': nroOperacion,
+            'Número de celular destino': celular,
+            'Tipo de transferencia': tipo,
+            'Estado de la transferencia': estado,
+            // Include headers if present
+            'Subject': headers.Subject || '',
+            'From': headers.From || '',
+            'Date': headers.Date || '',
+          };
+        } else {
+          return {};
         }
       }
     </script>
