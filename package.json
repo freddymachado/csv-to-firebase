@@ -1,13 +1,18 @@
 {
+  "type": "module",
   "dependencies": {
     "@google-cloud/firestore": "^7.6.0",
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
     "csvtojson": "^2.0.10",
     "dotenv": "^16.4.5",
+    "express": "^5.2.1",
     "googleapis": "^144.0.0",
     "http-server": "^14.1.1",
     "minimist": "^1.2.8",
     "moment": "^2.30.1",
     "mv": "^2.1.1",
+    "ollama": "^0.6.0",
     "pdf-to-excel": "^0.3.2",
     "xlsx": "^0.18.5"
   },
@@ -16,6 +21,10 @@
   "version": "1.0.0",
   "main": "backupFirestore.js",
   "scripts": {
+    "start": "http-server ./ -p 8080 -a 127.0.0.1 -c-1 -o",
+    "serve": "http-server ./ -p 8080 --cors",
+    "serve:ssl": "http-server ./ -S -C ./cert.pem -K ./key.pem -p 8443",
+    "api": "node src/server/api.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
