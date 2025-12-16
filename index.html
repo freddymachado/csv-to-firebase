@@ -13,10 +13,19 @@
     <button id="authorize_button" onclick="handleAuthClick()">Authorize</button>
     <button id="signout_button" onclick="handleSignoutClick()">Sign Out</button>
     <button id="save_button" onclick="saveParsed()" style="display:none">Save parsed to Firestore</button>
+    <button id="load_button" onclick="loadSaved()" style="margin-left:8px;">Load saved</button>
+    <label style="margin-left:8px;">User: <input id="api_user" style="width:120px"/></label>
+    <label>Pass: <input id="api_pass" type="password" style="width:120px"/></label>
+    <button id="export_button" onclick="exportSavedCSV()" style="display:none; margin-left:8px;">Export CSV</button>
 
     <pre id="content3" style="white-space: pre-wrap;"></pre>
     <pre id="content" style="white-space: pre-wrap;"></pre>
     <pre id="content2" style="white-space: pre-wrap;"></pre>
+    <div id="savedSection" style="margin-top:16px;">
+      <h3>Saved transactions</h3>
+      <div id="savedStatus" style="color:#444;margin-bottom:8px;"></div>
+      <div id="savedTableContainer"></div>
+    </div>
 
     <script type="text/javascript">
       /* exported gapiLoaded */
@@ -94,7 +103,7 @@
           }
           document.getElementById('signout_button').style.visibility = 'visible';
           document.getElementById('authorize_button').innerText = 'Refresh';
-          await listLabels();
+          //await listLabels();
           await listMessages();
         };
 
@@ -193,16 +202,13 @@
           }
         }));
 
-        const output = ['Messages:'].concat(decodedMessages.map(d => d.body)).join('\n\n---\n\n');
-        document.getElementById('content2').innerText = output;
-
         // Parse decoded messages (body + headers) into structured objects
         const parsedRaw = decodedMessages.map(d => parseTransaction(d.body, d.headers));
         // flatten results because parseTransaction may return an array when a body contains multiple operations
         const parsed = parsedRaw.flatMap(p => Array.isArray(p) ? p : [p]);
         // Save last parsed globally for the save button
         window.lastParsed = parsed;
-        document.getElementById('content3').innerText = JSON.stringify(parsed, null, 2);
+        document.getElementById('content3').innerText = 'Found '+parsed.length+' transactions';
         document.getElementById('save_button').style.display = parsed.length ? 'inline-block' : 'none';
       }
 
@@ -224,6 +230,138 @@
         } catch (e) {
           alert('Error saving parsed rows: ' + e.message || e);
         }
+      }
+
+      // Load saved items from server and render table
+      async function loadSaved() {
+        document.getElementById('savedStatus').innerText = 'Loading...';
+        try {
+          // Allow optional basic auth via inputs for remote servers
+          const user = document.getElementById('api_user').value.trim();
+          const pass = document.getElementById('api_pass').value;
+          const headers = {};
+          if (user && pass) headers['Authorization'] = 'Basic ' + btoa(user + ':' + pass);
+
+          const res = await fetch('http://127.0.0.1:3000/api/transactions?limit=500', { headers });
+          if (!res.ok) {
+            const txt = await res.text();
+            document.getElementById('savedStatus').innerText = `Error ${res.status}: ${txt}`;
+            return;
+          }
+          const j = await res.json();
+          const rows = j.rows || [];
+          document.getElementById('savedStatus').innerText = `Loaded ${rows.length} rows`;
+          renderSavedTable(rows);
+          document.getElementById('export_button').style.display = rows.length ? 'inline-block' : 'none';
+        } catch (e) {
+          document.getElementById('savedStatus').innerText = 'Error loading saved items: ' + (e.message || e);
+        }
+      }
+
+      // Render an array of objects into a simple table
+      function renderSavedTable(rows) {
+        const container = document.getElementById('savedTableContainer');
+        container.innerHTML = '';
+        if (!rows || !rows.length) {
+          container.innerText = 'No saved rows';
+          return;
+        }
+        // Define default (visible) column order - only these will be shown
+        const cols = ['Referencia','Fecha de la operación','Monto','Destinatario','Concepto'];
+        // Only show the specified columns (ignore any extra keys present in rows)
+        const allCols = cols;
+
+        // Helper: parse a date string from a row into a timestamp (ms). Supports dd/mm/yyyy and ISO.
+        function parseRowTimestamp(r) {
+          const v = (r['Fecha de la operación'] || r['Fecha'] || r.Date || '').trim();
+          if (!v) return null;
+          // dd/mm/yyyy[ optional time]
+          const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(.+))?$/);
+          if (m) {
+            const day = parseInt(m[1], 10);
+            const month = parseInt(m[2], 10) - 1;
+            const year = parseInt(m[3], 10);
+            let hour = 0, minute = 0, second = 0;
+            if (m[4]) {
+              // try to parse hh:mm[:ss][ AM/PM]
+              const tm = m[4].match(/(\d{1,2}):?(\d{2})?:?(\d{2})?\s*(AM|PM|am|pm)?/);
+              if (tm) {
+                hour = parseInt(tm[1] || '0', 10);
+                minute = parseInt(tm[2] || '0', 10);
+                second = parseInt(tm[3] || '0', 10);
+                const ampm = tm[4];
+                if (ampm && /pm/i.test(ampm) && hour < 12) hour += 12;
+                if (ampm && /am/i.test(ampm) && hour === 12) hour = 0;
+              }
+            }
+            return new Date(year, month, day, hour, minute, second).getTime();
+          }
+          // Try Date.parse for ISO-like strings
+          const pd = Date.parse(v);
+          if (!isNaN(pd)) return pd;
+          return null;
+        }
+
+        // Sort rows by parsed date (newest first). If no date, leave them at the end.
+        const rowsToRender = rows.slice().sort((a, b) => {
+          const ta = parseRowTimestamp(a) || 0;
+          const tb = parseRowTimestamp(b) || 0;
+          return tb - ta; // descending: newest first
+        });
+
+        const table = document.createElement('table');
+        table.border = '1';
+        table.cellPadding = '4';
+        table.style.borderCollapse = 'collapse';
+        table.style.maxWidth = '100%';
+        table.style.overflow = 'auto';
+        const thead = document.createElement('thead');
+        const tr = document.createElement('tr');
+        allCols.forEach(c => { const th = document.createElement('th'); th.innerText = c; th.style.background = '#eee'; tr.appendChild(th); });
+        thead.appendChild(tr); table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        rowsToRender.forEach(r => {
+          const tr = document.createElement('tr');
+          allCols.forEach(c => {
+            const td = document.createElement('td');
+            let v = r[c];
+            if (v === undefined) v = '';
+            if (typeof v === 'object') v = JSON.stringify(v);
+            td.innerText = v;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+        // keep latest loaded rows and visible columns for export
+        window._savedRows = rowsToRender;
+        window._visibleCols = allCols;
+      }
+
+      // Export loaded saved rows to CSV
+      function exportSavedCSV() {
+        const rows = window._savedRows || [];
+        if (!rows.length) { alert('No rows loaded'); return; }
+        // Use visible columns (same as table). Fall back to all keys if not set.
+        const headers = (window._visibleCols && window._visibleCols.length) ? window._visibleCols : (function(){ const s=new Set(); rows.forEach(r=>Object.keys(r).forEach(k=>s.add(k))); return Array.from(s); })();
+        const csv = [headers.map(h => `"${h.replace(/"/g,'""')}"`).join(',')];
+        for (const r of rows) {
+          const line = headers.map(h => {
+            let v = r[h];
+            if (v === undefined || v === null) return '""';
+            if (typeof v === 'object') v = JSON.stringify(v);
+            return `"${String(v).replace(/"/g,'""')}"`;
+          }).join(',');
+          csv.push(line);
+        }
+        const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'saved_transactions.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
       }
 
       // Helper: find the body data in the payload (walk parts)

@@ -115,6 +115,43 @@ app.post('/api/transactions', basicAuth, async (req, res) => {
   res.json({ ok: true, saved: results.length, results });
 });
 
+// GET /api/transactions - list recent transactions
+// Query params: ?limit=100
+app.get('/api/transactions', basicAuth, async (req, res) => {
+  const collectionName = process.env.FS_COLLECTION || 'tpago';
+  const limit = Math.min(1000, parseInt(req.query.limit || '200', 10) || 200);
+  try {
+    // Only return transactions with a non-empty amount field.
+    // Some documents store amount under 'Monto' and others use 'Monto Bs.'; query both and merge.
+    const snaps = [];
+    try {
+      const snap1 = await firestore.collection(collectionName).where('Monto', '!=', '').limit(limit).get();
+      snaps.push(...snap1.docs);
+    } catch (e) {
+      // ignore; maybe no docs or unsupported index
+      console.error('Error querying Monto field:', e.message || e);
+    }
+    try {
+      const snap2 = await firestore.collection(collectionName).where('Monto Bs.', '!=', '').limit(limit).get();
+      snaps.push(...snap2.docs);
+    } catch (e) {
+      console.error('Error querying Monto Bs. field:', e.message || e);
+    }
+
+    // Deduplicate by id and limit to requested limit
+    const map = new Map();
+    for (const d of snaps) {
+      if (!map.has(d.id)) map.set(d.id, d);
+      if (map.size >= limit) break;
+    }
+    const rows = Array.from(map.values()).slice(0, limit).map(d => ({ id: d.id, ...d.data() }));
+    return res.json({ ok: true, count: rows.length, rows });
+  } catch (err) {
+    console.error('Error listing transactions', err);
+    return res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 app.get('/api/ping', (req, res) => res.json({ ok: true, now: new Date().toISOString() }));
 // Print auth status for operator visibility
 const authConfigured = !!(process.env.API_BASIC_AUTH_USER && process.env.API_BASIC_AUTH_PASS);
