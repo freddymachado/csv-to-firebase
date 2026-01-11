@@ -92,9 +92,58 @@ app.post('/api/transactions', basicAuth, async (req, res) => {
   const docs = Array.isArray(payload) ? payload : [payload];
   const collectionName = process.env.FS_COLLECTION || 'tpago';
 
+  console.log('POST /api/transactions received, docs count=', docs.length);
+
   const results = [];
   for (const doc of docs) {
     try {
+      // If the incoming doc has a 'Referencia' field, normalize it and attempt an atomic create
+      // using that normalized value as the doc id. Also store the normalized value in the document.
+      const rawReferencia = doc && (doc.Referencia || (typeof doc.Referencia === 'string' ? doc.Referencia : undefined));
+      const normalizedRef = normalizeReferencia(rawReferencia);
+      console.log('rawReferencia:', JSON.stringify(rawReferencia), 'normalizedRef:', JSON.stringify(normalizedRef));
+      if (normalizedRef && normalizedRef !== '') {
+        // Try to ensure a normalized doc id is used. If a raw-id doc already exists (e.g. created
+        // before normalization was applied), atomically migrate it to the normalized id to avoid dupes.
+        const normalizedId = normalizedRef;
+        const rawId = (typeof rawReferencia === 'string' ? rawReferencia : undefined);
+        const normDocRef = firestore.collection(collectionName).doc(normalizedId);
+        const rawDocRef = rawId ? firestore.collection(collectionName).doc(rawId) : null;
+        try {
+          console.log('Attempt transaction create/migrate for normalized Referencia:', normalizedId, 'rawId:', JSON.stringify(rawId));
+          const action = await firestore.runTransaction(async (t) => {
+            const normSnap = await t.get(normDocRef);
+            if (normSnap.exists) return { action: 'exists' };
+            if (rawDocRef) {
+              const rawSnap = await t.get(rawDocRef);
+              if (rawSnap.exists) {
+                // migrate: copy raw doc into normalized id (merge with incoming doc), delete raw
+                const rawData = rawSnap.data() || {};
+                const merged = { ...rawData, ...doc, Referencia: normalizedId };
+                t.set(normDocRef, merged, { merge: true });
+                t.delete(rawDocRef);
+                return { action: 'migrated' };
+              }
+            }
+            // neither normalized nor raw exist: create normalized doc
+            const newDoc = { ...doc, Referencia: normalizedId };
+            t.set(normDocRef, newDoc, { merge: true });
+            return { action: 'created' };
+          });
+          console.log('Transaction action for', normalizedId, action);
+          if (action && (action.action === 'created' || action.action === 'migrated')) {
+            results.push({ id: normDocRef.id, status: 'saved', referencia: normalizedId, note: action.action });
+            continue;
+          }
+          if (action && action.action === 'exists') {
+            results.push({ status: 'skipped-duplicate-referencia', referencia: normalizedId, note: 'Referencia already exists (doc id)' });
+            continue;
+          }
+        } catch (err) {
+          console.error('Error creating/migrating doc by referencia transaction', err);
+          // fall through to fallback behavior below
+        }
+      }
       // Use Referencia or Número de confirmación as id if present to avoid duplicates
       let docRef;
       const idKey = doc['Número de confirmación'] || doc.Referencia || doc['Número de confirmación']?.toString();
