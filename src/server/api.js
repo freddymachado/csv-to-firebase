@@ -201,7 +201,7 @@ app.get('/api/transactions', basicAuth, async (req, res) => {
   }
 });
 
-app.get('/api/ping', (req, res) => res.json({ ok: true, now: new Date().toISOString() }));
+app.get('/api/ping', (req, res) => res.json({ ok: true, now: new Date().toISOString(), uptime: process.uptime() }));
 // Print auth status for operator visibility
 const authConfigured = !!(process.env.API_BASIC_AUTH_USER && process.env.API_BASIC_AUTH_PASS);
 if (authConfigured) {
