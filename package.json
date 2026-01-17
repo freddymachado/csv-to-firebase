@@ -2,6 +2,7 @@
   "type": "module",
   "dependencies": {
     "@google-cloud/firestore": "7.6.0",
+    "@google-cloud/vision": "5.3.4",
     "body-parser": "2.2.1",
     "cors": "2.8.5",
     "csvtojson": "2.0.10",
