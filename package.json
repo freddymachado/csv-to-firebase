@@ -5,7 +5,7 @@
     "@google-cloud/vision": "5.3.4",
     "body-parser": "2.2.1",
     "cors": "2.8.5",
-    "csvtojson": "2.0.10",
+    "csvtojson": "2.0.14",
     "dotenv": "16.4.5",
     "express": "5.2.1",
     "googleapis": "144.0.0",
