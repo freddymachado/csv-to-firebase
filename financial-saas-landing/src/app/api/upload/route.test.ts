@@ -3,7 +3,7 @@
  * @jest-environment node
  */
 import { POST } from './route';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 // Create mocks for Google Cloud Storage
 const mockSave = jest.fn();
@@ -15,9 +15,6 @@ const mockFile = jest.fn(() => ({
 }));
 const mockBucket = jest.fn(() => ({
     file: mockFile,
-}));
-const mockStorage = jest.fn(() => ({
-    bucket: mockBucket,
 }));
 
 // Mock the module

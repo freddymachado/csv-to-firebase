@@ -8,6 +8,9 @@ export default function FileUploader() {
     const [message, setMessage] = useState<string>('');
     const [publicUrl, setPublicUrl] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Add state for extraction
+    const [extractedText, setExtractedText] = useState<string>('');
+    const [isExtracting, setIsExtracting] = useState<boolean>(false);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -37,6 +40,7 @@ export default function FileUploader() {
 
         setStatus('uploading');
         setMessage('Uploading your file...');
+        setExtractedText(''); // Reset previous text
 
         const formData = new FormData();
         formData.append('file', file);
@@ -57,10 +61,44 @@ export default function FileUploader() {
             setMessage('File uploaded successfully!');
             setPublicUrl(data.url);
             setFile(null); // Clear file after success
+
+            // Auto-start extraction
+            if (data.path) {
+                handleExtraction(`gs://${process.env.NEXT_PUBLIC_GCS_BUCKET_NAME || 'trx-resources'}/${data.path}`);
+            }
+
         } catch (error) {
             console.error('Upload error:', error);
             setStatus('error');
             setMessage(error instanceof Error ? error.message : 'An error occurred during upload.');
+        }
+    };
+
+    const handleExtraction = async (gcsUri: string) => {
+        setIsExtracting(true);
+        setMessage('Extracting text from image...');
+
+        try {
+            const response = await fetch('/api/extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gcsUri }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error('Extraction failed:', data.error);
+                // Don't fail the whole process, just show upload success
+                setMessage('File uploaded, but text extraction failed.');
+            } else {
+                setExtractedText(data.text);
+                setMessage('File uploaded and text extracted successfully!');
+            }
+        } catch (error) {
+            console.error('Extraction error:', error);
+        } finally {
+            setIsExtracting(false);
         }
     };
 
@@ -112,39 +150,50 @@ export default function FileUploader() {
                         onClick={handleUpload}
                         disabled={!file}
                         className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${file
-                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
                             }`}
                     >
                         Upload Transaction File
                     </button>
                 )}
 
-                {status === 'uploading' && (
+                {(status === 'uploading' || isExtracting) && (
                     <div className="text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                         <p className="text-blue-600 dark:text-blue-400">{message}</p>
                     </div>
                 )}
 
-                {status === 'success' && (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg border border-green-200 dark:border-green-800 text-center">
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            <span className="font-bold">Success!</span>
+                {status === 'success' && !isExtracting && (
+                    <div className="flex flex-col gap-4">
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg border border-green-200 dark:border-green-800 text-center">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span className="font-bold">Success!</span>
+                            </div>
+                            <p>{message}</p>
+                            {publicUrl && (
+                                <div className="mt-2 text-xs break-all">
+                                    <span className="font-semibold">File URL:</span> {publicUrl}
+                                </div>
+                            )}
+                            <button
+                                onClick={() => setStatus('idle')}
+                                className="mt-3 text-sm underline hover:text-green-800"
+                            >
+                                Upload another file
+                            </button>
                         </div>
-                        <p>{message}</p>
-                        {publicUrl && (
-                            <div className="mt-2 text-xs break-all">
-                                <span className="font-semibold">File URL:</span> {publicUrl}
+
+                        {extractedText && (
+                            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Extracted Text:</h3>
+                                <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-60 bg-white dark:bg-gray-950 p-2 rounded border border-gray-100 dark:border-gray-800">
+                                    {extractedText}
+                                </pre>
                             </div>
                         )}
-                        <button
-                            onClick={() => setStatus('idle')}
-                            className="mt-3 text-sm underline hover:text-green-800"
-                        >
-                            Upload another file
-                        </button>
                     </div>
                 )}
 
