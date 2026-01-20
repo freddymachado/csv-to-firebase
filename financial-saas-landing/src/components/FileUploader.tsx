@@ -1,6 +1,30 @@
 'use client';
 
 import { useState, useRef } from 'react';
+// Utilidad para parsear el texto extraído en transacciones
+// Ajusta esta función según el formato real del texto extraído
+function parseTransactions(text: string) {
+    // Ejemplo: cada transacción separada por doble salto de línea
+    // y cada campo separado por salto de línea o delimitador
+    // Ajusta el regex según el formato real
+    const transactions: Array<{ [key: string]: string }> = [];
+    const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+    for (const block of blocks) {
+        // Ejemplo: cada campo en una línea, en orden
+        // ['Referencia','Fecha de la operación','Monto','Destinatario','Concepto']
+        const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length >= 5) {
+            transactions.push({
+                Referencia: lines[0],
+                'Fecha de la operación': lines[1],
+                Monto: lines[2],
+                Destinatario: lines[3],
+                Concepto: lines.slice(4).join(' '), // Por si el concepto es multilinea
+            });
+        }
+    }
+    return transactions;
+}
 
 export default function FileUploader() {
     const [file, setFile] = useState<File | null>(null);
@@ -188,10 +212,37 @@ export default function FileUploader() {
 
                         {extractedText && (
                             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Extracted Text:</h3>
-                                <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-60 bg-white dark:bg-gray-950 p-2 rounded border border-gray-100 dark:border-gray-800">
-                                    {extractedText}
-                                </pre>
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Transacciones extraídas:</h3>
+                                {parseTransactions(extractedText).length > 0 ? (
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full text-xs text-left border border-gray-200 dark:border-gray-700">
+                                            <thead className="bg-gray-100 dark:bg-gray-800">
+                                                <tr>
+                                                    <th className="px-2 py-1 border">Referencia</th>
+                                                    <th className="px-2 py-1 border">Fecha de la operación</th>
+                                                    <th className="px-2 py-1 border">Monto</th>
+                                                    <th className="px-2 py-1 border">Destinatario</th>
+                                                    <th className="px-2 py-1 border">Concepto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {parseTransactions(extractedText).map((tx, idx) => (
+                                                    <tr key={idx} className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-950">
+                                                        <td className="px-2 py-1 border">{tx.Referencia}</td>
+                                                        <td className="px-2 py-1 border">{tx['Fecha de la operación']}</td>
+                                                        <td className="px-2 py-1 border">{tx.Monto}</td>
+                                                        <td className="px-2 py-1 border">{tx.Destinatario}</td>
+                                                        <td className="px-2 py-1 border">{tx.Concepto}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-60 bg-white dark:bg-gray-950 p-2 rounded border border-gray-100 dark:border-gray-800">
+                                        {extractedText}
+                                    </pre>
+                                )}
                             </div>
                         )}
                     </div>
