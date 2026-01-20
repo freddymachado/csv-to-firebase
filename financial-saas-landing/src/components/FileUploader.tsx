@@ -1,3 +1,29 @@
+// Clasifica la transacción según el concepto
+function classifyConcept(concept: string) {
+    const lower = concept.toLowerCase();
+    if (/supermercado|alimento|comida|mercado|restaurante|panaderia|bodega/.test(lower)) {
+        return 'Alimentación';
+    }
+    if (/transporte|taxi|uber|bus|metro|gasolina|combustible/.test(lower)) {
+        return 'Transporte';
+    }
+    if (/farmacia|medicina|salud|doctor|hospital/.test(lower)) {
+        return 'Salud';
+    }
+    if (/servicio|agua|luz|electricidad|internet|teléfono/.test(lower)) {
+        return 'Servicios';
+    }
+    if (/ropa|vestimenta|zapato|moda/.test(lower)) {
+        return 'Vestimenta';
+    }
+    if (/educación|colegio|universidad|curso|libro/.test(lower)) {
+        return 'Educación';
+    }
+    if (/entretenimiento|cine|teatro|música|juego/.test(lower)) {
+        return 'Entretenimiento';
+    }
+    return 'Otro';
+}
 'use client';
 
 import { useState, useRef } from 'react';
@@ -223,6 +249,7 @@ export default function FileUploader() {
                                                     <th className="px-2 py-1 border">Monto</th>
                                                     <th className="px-2 py-1 border">Destinatario</th>
                                                     <th className="px-2 py-1 border">Concepto</th>
+                                                    <th className="px-2 py-1 border">Clasificación</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -233,6 +260,7 @@ export default function FileUploader() {
                                                         <td className="px-2 py-1 border">{tx.Monto}</td>
                                                         <td className="px-2 py-1 border">{tx.Destinatario}</td>
                                                         <td className="px-2 py-1 border">{tx.Concepto}</td>
+                                                        <td className="px-2 py-1 border">{classifyConcept(tx.Concepto)}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
