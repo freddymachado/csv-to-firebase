@@ -12,6 +12,7 @@ export default function Navbar() {
                     </div>
                     <div className="hidden md:ml-6 md:flex md:items-center md:space-x-8">
                         <a href="#features" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">Features</a>
+                        <a href="/dashboard" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">Dashboard</a>
                         <a href="#how-it-works" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">How it Works</a>
                         <a href="#" className="px-4 py-2 rounded-md bg-[#0F52BA] text-white text-sm font-bold hover:bg-[#0047AB] transition-colors shadow-sm">
                             Get Started

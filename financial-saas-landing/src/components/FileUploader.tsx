@@ -1,0 +1,169 @@
+'use client';
+
+import { useState, useRef } from 'react';
+
+export default function FileUploader() {
+    const [file, setFile] = useState<File | null>(null);
+    const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [message, setMessage] = useState<string>('');
+    const [publicUrl, setPublicUrl] = useState<string>('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setFile(e.target.files[0]);
+            setStatus('idle');
+            setMessage('');
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            setFile(e.dataTransfer.files[0]);
+            setStatus('idle');
+            setMessage('');
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!file) return;
+
+        setStatus('uploading');
+        setMessage('Uploading your file...');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            setStatus('success');
+            setMessage('File uploaded successfully!');
+            setPublicUrl(data.url);
+            setFile(null); // Clear file after success
+        } catch (error) {
+            console.error('Upload error:', error);
+            setStatus('error');
+            setMessage(error instanceof Error ? error.message : 'An error occurred during upload.');
+        }
+    };
+
+    return (
+        <div className="max-w-xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700">
+            <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${file ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                    }`}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+            >
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="image/*,.pdf,.csv,.xlsx"
+                />
+
+                {file ? (
+                    <div className="flex flex-col items-center">
+                        <svg className="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{file.name}</p>
+                        <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                            className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center">
+                        <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p className="text-gray-600 dark:text-gray-300 font-medium">Click to upload or drag and drop</p>
+                        <p className="text-sm text-gray-400 mt-1">Images, PDF, CSV, Excel</p>
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-4">
+                {status === 'idle' && (
+                    <button
+                        onClick={handleUpload}
+                        disabled={!file}
+                        className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${file
+                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                            }`}
+                    >
+                        Upload Transaction File
+                    </button>
+                )}
+
+                {status === 'uploading' && (
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                        <p className="text-blue-600 dark:text-blue-400">{message}</p>
+                    </div>
+                )}
+
+                {status === 'success' && (
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg border border-green-200 dark:border-green-800 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            <span className="font-bold">Success!</span>
+                        </div>
+                        <p>{message}</p>
+                        {publicUrl && (
+                            <div className="mt-2 text-xs break-all">
+                                <span className="font-semibold">File URL:</span> {publicUrl}
+                            </div>
+                        )}
+                        <button
+                            onClick={() => setStatus('idle')}
+                            className="mt-3 text-sm underline hover:text-green-800"
+                        >
+                            Upload another file
+                        </button>
+                    </div>
+                )}
+
+                {status === 'error' && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span className="font-bold">Error</span>
+                        </div>
+                        <p>{message}</p>
+                        <button
+                            onClick={() => setStatus('idle')}
+                            className="mt-3 text-sm underline hover:text-red-800"
+                        >
+                            Try again
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
