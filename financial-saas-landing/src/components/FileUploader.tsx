@@ -1,3 +1,82 @@
+'use client';
+
+import { useState, useRef } from 'react';
+// Utilidad para parsear el texto extraído en transacciones
+// Ajusta esta función según el formato real del texto extraído
+function parseTransactions(text: string) {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const transactions: Array<{ [key: string]: string }> = [];
+
+    // We'll try to find one transaction per text block or the whole text if it's a single one
+    let currentTx: { [key: string]: string } = {};
+    let foundAny = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].toLowerCase();
+
+        // Helper to check if a string looks like a date
+        const isDate = (s: string) => /\d{2,4}[/-]\d{1,2}[/-]\d{2,4}/.test(s);
+        // Helper to check if a string looks like a number/reference
+        const isNumeric = (s: string) => /^\d{6,}/.test(s.replace(/[\s.-]/g, ''));
+        // Helper to check if it's a valid amount
+        const isAmount = (s: string) => /\d+([.,]\d+)?/.test(s);
+
+        if (line.includes('monto')) {
+            const match = lines[i].match(/monto:?\s*(.*)/i);
+            let candidate = (match && match[1].trim()) || (i + 1 < lines.length ? lines[i + 1] : '');
+            if (isAmount(candidate)) {
+                currentTx['Monto'] = candidate;
+            } else if (i + 1 < lines.length && isAmount(lines[i + 1])) {
+                currentTx['Monto'] = lines[i + 1];
+            }
+            foundAny = true;
+        } else if (line.includes('referencia')) {
+            const match = lines[i].match(/referencia:?\s*(.*)/i);
+            let candidate = (match && match[1].trim()) || (i + 1 < lines.length ? lines[i + 1] : '');
+            if (isNumeric(candidate)) {
+                currentTx['Referencia'] = candidate;
+            } else if (i + 1 < lines.length && isNumeric(lines[i + 1])) {
+                currentTx['Referencia'] = lines[i + 1];
+            }
+            foundAny = true;
+        } else if (line.includes('fecha')) {
+            const match = lines[i].match(/fecha:?\s*(.*)/i);
+            let candidate = (match && match[1].trim()) || (i + 1 < lines.length ? lines[i + 1] : '');
+            if (isDate(candidate)) {
+                currentTx['Fecha'] = candidate;
+            } else if (i + 1 < lines.length && isDate(lines[i + 1])) {
+                currentTx['Fecha'] = lines[i + 1];
+            }
+            foundAny = true;
+        } else if (line.includes('beneficiario') || line.includes('destinatario')) {
+            const match = lines[i].match(/(beneficiario|destinatario):?\s*(.*)/i);
+            if (match && match[2].trim()) {
+                currentTx['Destinatario'] = match[2].trim();
+            } else if (i + 1 < lines.length) {
+                currentTx['Destinatario'] = lines[i + 1];
+            }
+            foundAny = true;
+        } else if (line.includes('concepto')) {
+            const match = lines[i].match(/concepto:?\s*(.*)/i);
+            if (match && match[1].trim()) {
+                currentTx['Concepto'] = match[1].trim();
+            } else if (i + 1 < lines.length) {
+                // Concept might be multi-line, take 2 lines for safety
+                currentTx['Concepto'] = lines[i + 1];
+                if (i + 2 < lines.length && !lines[i + 2].includes(':') && lines[i + 2].length > 3) {
+                    currentTx['Concepto'] += ' ' + lines[i + 2];
+                }
+            }
+            foundAny = true;
+        }
+    }
+
+    if (foundAny) {
+        transactions.push(currentTx);
+    }
+
+    return transactions;
+}
 // Clasifica la transacción según el concepto
 function classifyConcept(concept: string) {
     const lower = concept.toLowerCase();
@@ -24,34 +103,6 @@ function classifyConcept(concept: string) {
     }
     return 'Otro';
 }
-'use client';
-
-import { useState, useRef } from 'react';
-// Utilidad para parsear el texto extraído en transacciones
-// Ajusta esta función según el formato real del texto extraído
-function parseTransactions(text: string) {
-    // Ejemplo: cada transacción separada por doble salto de línea
-    // y cada campo separado por salto de línea o delimitador
-    // Ajusta el regex según el formato real
-    const transactions: Array<{ [key: string]: string }> = [];
-    const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
-    for (const block of blocks) {
-        // Ejemplo: cada campo en una línea, en orden
-        // ['Referencia','Fecha de la operación','Monto','Destinatario','Concepto']
-        const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
-        if (lines.length >= 5) {
-            transactions.push({
-                Referencia: lines[0],
-                'Fecha de la operación': lines[1],
-                Monto: lines[2],
-                Destinatario: lines[3],
-                Concepto: lines.slice(4).join(' '), // Por si el concepto es multilinea
-            });
-        }
-    }
-    return transactions;
-}
-
 export default function FileUploader() {
     const [file, setFile] = useState<File | null>(null);
     const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -167,6 +218,8 @@ export default function FileUploader() {
                     onChange={handleFileChange}
                     className="hidden"
                     accept="image/*,.pdf,.csv,.xlsx"
+                    title="Upload transaction file"
+                    aria-label="Upload transaction file"
                 />
 
                 {file ? (
@@ -245,7 +298,7 @@ export default function FileUploader() {
                                             <thead className="bg-gray-100 dark:bg-gray-800">
                                                 <tr>
                                                     <th className="px-2 py-1 border">Referencia</th>
-                                                    <th className="px-2 py-1 border">Fecha de la operación</th>
+                                                    <th className="px-2 py-1 border">Fecha</th>
                                                     <th className="px-2 py-1 border">Monto</th>
                                                     <th className="px-2 py-1 border">Destinatario</th>
                                                     <th className="px-2 py-1 border">Concepto</th>
@@ -256,7 +309,7 @@ export default function FileUploader() {
                                                 {parseTransactions(extractedText).map((tx, idx) => (
                                                     <tr key={idx} className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-900 dark:even:bg-gray-950">
                                                         <td className="px-2 py-1 border">{tx.Referencia}</td>
-                                                        <td className="px-2 py-1 border">{tx['Fecha de la operación']}</td>
+                                                        <td className="px-2 py-1 border">{tx.Fecha}</td>
                                                         <td className="px-2 py-1 border">{tx.Monto}</td>
                                                         <td className="px-2 py-1 border">{tx.Destinatario}</td>
                                                         <td className="px-2 py-1 border">{tx.Concepto}</td>
