@@ -1,5 +1,15 @@
 
+import { signInWithGoogle } from "../utils/firebase";
+
 export default function Navbar() {
+    const handleGetStarted = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        try {
+            await signInWithGoogle();
+        } catch (error) {
+            alert("Error al iniciar sesión con Google");
+        }
+    };
     return (
         <nav className="fixed w-full z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 transition-all">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,7 +24,7 @@ export default function Navbar() {
                         <a href="#features" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">Features</a>
                         <a href="/dashboard" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">Dashboard</a>
                         <a href="#how-it-works" className="text-gray-500 hover:text-[#0F52BA] px-3 py-2 text-sm font-medium transition-colors">How it Works</a>
-                        <a href="#" className="px-4 py-2 rounded-md bg-[#0F52BA] text-white text-sm font-bold hover:bg-[#0047AB] transition-colors shadow-sm">
+                        <a href="#" onClick={handleGetStarted} className="px-4 py-2 rounded-md bg-[#0F52BA] text-white text-sm font-bold hover:bg-[#0047AB] transition-colors shadow-sm">
                             Get Started
                         </a>
                     </div>
