@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.18.0",
+    "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^5.3.4",
     "next": "16.1.4",
     "react": "19.2.3",

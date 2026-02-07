@@ -6,7 +6,7 @@ import { useState, useRef } from 'react';
 function parseTransactions(text: string) {
     const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
     const transactions: Array<{ [key: string]: string }> = [];
-
+    console.log(lines);
     // We'll try to find one transaction per text block or the whole text if it's a single one
     let currentTx: { [key: string]: string } = {};
     let foundAny = false;
@@ -21,16 +21,16 @@ function parseTransactions(text: string) {
         // Helper to check if it's a valid amount
         const isAmount = (s: string) => /\d+([.,]\d+)?/.test(s);
 
-        if (line.includes('monto')) {
+        if (line.includes('monto') || line.includes('pagomóvilbdv') || line.includes('bs')) {
             const match = lines[i].match(/monto:?\s*(.*)/i);
             let candidate = (match && match[1].trim()) || (i + 1 < lines.length ? lines[i + 1] : '');
-            if (isAmount(candidate)) {
-                currentTx['Monto'] = candidate;
+            if (isAmount(candidate.split(' ')[0])) {
+                currentTx['Monto'] = candidate.split(' ')[0];
             } else if (i + 1 < lines.length && isAmount(lines[i + 1])) {
                 currentTx['Monto'] = lines[i + 1];
             }
             foundAny = true;
-        } else if (line.includes('referencia')) {
+        } else if (line.includes('referencia') || line.includes('operación')) {
             const match = lines[i].match(/referencia:?\s*(.*)/i);
             let candidate = (match && match[1].trim()) || (i + 1 < lines.length ? lines[i + 1] : '');
             if (isNumeric(candidate)) {
@@ -48,7 +48,7 @@ function parseTransactions(text: string) {
                 currentTx['Fecha'] = lines[i + 1];
             }
             foundAny = true;
-        } else if (line.includes('beneficiario') || line.includes('destinatario')) {
+        } else if (line.includes('destin') || line.includes('beneficiario')) {
             const match = lines[i].match(/(beneficiario|destinatario):?\s*(.*)/i);
             if (match && match[2].trim()) {
                 currentTx['Destinatario'] = match[2].trim();
@@ -180,7 +180,7 @@ export default function FileUploader() {
         setMessage('Extracting text from image...');
 
         try {
-            const response = await fetch('/api/extract', {
+            const response = await fetch('/api/extract-transaction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ gcsUri }),
@@ -313,7 +313,7 @@ export default function FileUploader() {
                                                         <td className="px-2 py-1 border">{tx.Monto}</td>
                                                         <td className="px-2 py-1 border">{tx.Destinatario}</td>
                                                         <td className="px-2 py-1 border">{tx.Concepto}</td>
-                                                        <td className="px-2 py-1 border">{classifyConcept(tx.Concepto)}</td>
+                                                        <td className="px-2 py-1 border">{classifyConcept(tx.Concepto ?? 'otros')}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
